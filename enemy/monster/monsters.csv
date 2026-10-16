@@ -1,0 +1,23 @@
+# 怪物表：一行一只。base 是初始属性块（k=v;k=v），drops 是掉落（物品:概率:最少:最多，多条用 | 分隔）。
+# 经验由等级反推（12 + 等级×等级×6），不在表里配。chase_range 不要小于 aggro_radius。
+id,level,aggro_radius,attack_range,chase_range,gold_min,gold_max,base,drops
+山鸡,1,6,1,14,1,4,max_hp=28;dc_min=3;dc_max=6;ac_min=1;ac_max=2;mac_min=0;mac_max=2;hit=4;dodge=3;attack_speed=1,兽皮:0.45:1:1
+野鹿,3,6,1,14,2,8,max_hp=52;dc_min=5;dc_max=9;ac_min=2;ac_max=4;mac_min=1;mac_max=3;hit=6;dodge=6;attack_speed=1,兽皮:0.7:1:2|铁矿石:0.15:1:1
+木人桩,6,6,1,14,4,14,max_hp=96;dc_min=8;dc_max=14;ac_min=4;ac_max=8;mac_min=2;mac_max=5;hit=8;dodge=4;attack_speed=1,活血散:0.35:1:2|铁矿石:0.25:1:2
+竹林狼,9,8,1,16,8,26,max_hp=150;dc_min=12;dc_max=21;ac_min=6;ac_max=12;mac_min=3;mac_max=7;hit=13;dodge=9;attack_speed=1,狼牙:0.55:1:2|大活血丹:0.2:1:1|兽皮:0.3:1:1
+蒙面匪,11,7,1,14,10,30,max_hp=180;dc_min=14;dc_max=24;ac_min=7;ac_max=14;mac_min=4;mac_max=9;hit=12;dodge=6;attack_speed=1,青铜剑:0.08:1:1|软甲:0.08:1:1|大活血丹:0.25:1:2|兽皮:0.5:1:2
+洞蝠,13,7,1,14,12,34,max_hp=170;dc_min=15;dc_max=26;ac_min=5;ac_max=10;mac_min=6;mac_max=12;hit=17;dodge=13;attack_speed=1,洞蝠翼:0.6:1:2|内力丹:0.3:1:2
+枯骨武奴,16,8,1,14,20,55,max_hp=260;dc_min=22;dc_max=36;ac_min=12;ac_max=20;mac_min=8;mac_max=14;hit=16;dodge=8;attack_speed=1,赤炎刀:0.06:1:1|铁扳指:0.04:1:1|铁头盔:0.12:1:1|武谱·金钟罩:0.05:1:1|大活血丹:0.4:1:3
+白骨宗师,24,9,1,18,60,160,max_hp=430;dc_min=32;dc_max=52;ac_min=16;ac_max=28;mac_min=12;mac_max=22;hit=22;dodge=10;attack_speed=1,回风刀:0.07:1:1|铁重甲:0.07:1:1|虎头盔:0.05:1:1|武谱·回风扫叶:0.08:1:1|两仪丹:0.3:1:2|蛇胆:0.4:1:3
+野狐,2,6,1,12,1,6,max_hp=40;dc_min=4;dc_max=7;ac_min=1;ac_max=3;mac_min=0;mac_max=2;hit=7;dodge=8;attack_speed=1,兽皮:0.5:1:1|狐皮:0.35:1:1
+竹鼠,4,5,1,10,2,9,max_hp=66;dc_min=6;dc_max=10;ac_min=2;ac_max=5;mac_min=1;mac_max=3;hit=8;dodge=5;attack_speed=1,兽皮:0.6:1:2
+毒蛇,7,6,1,11,3,12,max_hp=78;dc_min=9;dc_max=14;ac_min=2;ac_max=4;mac_min=0;mac_max=3;hit=12;dodge=10;attack_speed=1,蛇胆:0.55:1:1|兽皮:0.2:1:1
+山贼,10,7,1,15,9,24,max_hp=140;dc_min=12;dc_max=20;ac_min=5;ac_max=11;mac_min=3;mac_max=6;hit=12;dodge=6;attack_speed=1,青铜剑:0.06:1:1|藤甲:0.05:1:1|护心镜:0.05:1:1|铁矿石:0.2:1:2|活血散:0.3:1:1
+恶奴,12,6,1,13,8,20,max_hp=165;dc_min=13;dc_max=22;ac_min=7;ac_max=13;mac_min=4;mac_max=8;hit=11;dodge=4;attack_speed=1,金创药:0.25:1:1|云纹扳指:0.04:1:1|兽皮:0.4:1:2
+独眼匪,14,8,1,16,14,36,max_hp=205;dc_min=16;dc_max=27;ac_min=8;ac_max=15;mac_min=5;mac_max=10;hit=14;dodge=7;attack_speed=1,皮腰带:0.08:1:1|丝绦腰带:0.06:1:1|活血散:0.4:1:2|铁矿石:0.3:1:2
+铁面客,17,7,1,15,18,42,max_hp=255;dc_min=19;dc_max=31;ac_min=10;ac_max=19;mac_min=7;mac_max=13;hit=15;dodge=6;attack_speed=1,精铁盔:0.1:1:1|赤炎刀:0.04:1:1|玄铁:0.25:1:1
+夜枭,19,9,1,18,16,40,max_hp=230;dc_min=21;dc_max=33;ac_min=7;ac_max=14;mac_min=10;mac_max=18;hit=19;dodge=14;attack_speed=1,洞蝠翼:0.35:1:2|蛇胆:0.2:1:1
+妖道,21,8,1,17,25,60,max_hp=280;dc_min=24;dc_max=38;ac_min=9;ac_max=16;mac_min=14;mac_max=24;hit=20;dodge=11;attack_speed=1,大内力丹:0.3:1:1|武谱·狮子吼:0.04:1:1|两仪丹:0.15:1:1
+石敢当,23,5,1,10,28,70,max_hp=420;dc_min=26;dc_max=40;ac_min=16;ac_max=28;mac_min=8;mac_max=14;hit=16;dodge=3;attack_speed=1,玄铁:0.45:1:2|铁矿石:0.5:1:3
+血刀僧,26,9,1,19,35,90,max_hp=480;dc_min=34;dc_max=54;ac_min=14;ac_max=24;mac_min=11;mac_max=20;hit=22;dodge=9;attack_speed=1,雁翎刀:0.12:1:1|玄武甲:0.04:1:1|步云履:0.08:1:1|武谱·铁布衫:0.06:1:1
+尸解徒,28,9,1,20,40,100,max_hp=520;dc_min=36;dc_max=58;ac_min=15;ac_max=26;mac_min=13;mac_max=23;hit=23;dodge=10;attack_speed=1,大活血丹:0.35:1:2|铜扳指:0.06:1:1|紫竹杖:0.05:1:1|千年参:0.03:1:1

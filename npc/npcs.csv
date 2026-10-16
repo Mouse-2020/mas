@@ -1,0 +1,13 @@
+# NPC 表：一行一位。shop_id 对应 system/economy/shop 里的商店；站位在地图表的 npc_spots 里配。
+# palette 决定立绘配色（elder/vendor/healer/mage），不认识的颜色统一灰。
+id,title,greeting,shop_id,can_repair,can_teleport,palette
+武馆教头,武馆教头,青云武馆这些年不太平，后山的野兽都敢往院里窜。你要愿意帮忙，我这儿有份酬劳。,,false,false,elder
+铁匠王二,铁匠 王二,刀剑无眼，价钱有眼。穿旧的装备我这儿也能修。,weapon,true,false,vendor
+药婆孙氏,药师 孙氏,药不治百病，但能救眼下这一条命。皮子、蛇胆这些玩意儿我也收。,medicine,false,false,healer
+引路人玄子,引路人 玄子,想去哪儿？密洞里的风比外头冷，带好药再走。,,false,true,mage
+账房钱九,账房 钱九,账本上短了三两银子，你能替我查出来？,,false,false,vendor
+镖师老周,镖师 老周,这条路我走了二十年，如今野兽比镖还多。,,false,false,guard
+猎户阿秀,猎户 阿秀,皮子要完整才值钱，别一刀把肚子剖开。,,false,false,hunter
+云游道人,云游 道人,洞里的骨头是自己站起来的，不是人摆的。,,false,false,mage
+守洞人哑伯,守洞人 哑伯,他不会说话，只指了指洞口，又指了指你的药囊。,,false,false,elder
+说书柳三,说书 柳三,武馆这一段我说了半辈子，还差一个收尾。,,false,false,vendor

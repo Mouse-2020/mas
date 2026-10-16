@@ -1,0 +1,13 @@
+# 技能表：一行一招。kind 写枚举名或序号；buff 只有增益招需要填。
+# auto_learn=true 表示升到 required_level 自动掌握，false 需要读武谱。
+id,title,kind,mp_cost,cooldown,required_level,reach,factor,flat_damage,heal_percent,buff_seconds,buff,auto_learn,description,sound
+slash,入门剑法,STRIKE,4,1.1,1,1,1.5,0,30,10,,true,凝聚力气的一剑，比平砍疼。,slash
+heal,调息术,HEAL,16,9.0,4,1,1.5,0,35,10,,true,运转内力缝合伤口，回血量大但冷却长。,heal
+moon,回风扫叶,SWEEP,13,4.5,8,1,1.05,0,30,10,,false,横扫身前一圈内所有敌人。,slash
+bolt,穿云掌,BOLT,15,2.6,10,7,1.7,0,30,10,,false,隔空发劲，只打一个目标，走内力防御。,bolt
+shield,金钟罩,BUFF,20,26.0,13,1,1.5,0,30,14,ac_min=6;ac_max=10;mac_min=4;mac_max=8;dodge=3,false,十四秒内防御与身法提升。,buff
+fire,燎原剑,STRIKE,24,7.0,18,1,2.8,12,30,10,,false,把全部力气压在最后一剑上。,fire
+fist,崩拳,STRIKE,8,2.0,6,1,1.8,2,30,10,,true,近身短打，出手快、冷却短。,slash
+kick,追风腿,SWEEP,18,6.0,11,1,1.35,0,30,10,,true,转身一腿扫开贴身的敌人。,slash
+iron,铁布衫,BUFF,18,30.0,15,1,1.5,0,30,18,ac_min=8;ac_max=14;mac_min=6;mac_max=12,false,十八秒内皮糙肉厚，扛得住几下。,buff
+roar,狮子吼,SWEEP,30,12.0,22,1,2.1,8,30,10,,false,一声吼出去，周围全被震退。,cast

@@ -1,0 +1,20 @@
+# ---- Godot ----
+# 编辑器缓存与导入产物，本机可重建；`.godot/` 之外的 .import 旁文件要提交
+.godot/
+*.tmp
+.fts
+.idea.gdsdl/
+.vscode/godot/
+
+# 无头验证台的产物：--shot 截图、render 全图、sim 存档
+.artifacts/
+*.log
+run-*.json
+shot*.png
+
+# ---- 操作系统 / 编辑器 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+*.swp

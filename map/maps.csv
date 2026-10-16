@@ -1,0 +1,16 @@
+# 地图表：一行一张图。id 是 ASCII 且落进存档，别改；title 是画面上写的图名。
+# monsters 用分号分隔怪物名（写的时候由弱到强，真正排位按等级与离出生点的远近）；
+# links 是 "目标图:方位:门牌" 多条用 | 分隔，一张图的四个方位各只放一扇门，
+# 且 A 链到 B 则 B 必须链回 A，否则玩家出不来——自检会逐条查。
+# npc_spots 是 "NPC名:相对广场中心的 dx:dy"，城外的图一般不放。
+# 刷怪数量要够分给每种至少三格（session 一段一种），否则表里的怪刷不出来。
+id,title,theme,width,height,safe,monster_count,monsters,links,npc_spots
+town,青云武馆,TOWN,96,72,true,16,,suburb:EAST:后山门,武馆教头:-6:-5|铁匠王二:6:-5|药婆孙氏:-6:5|引路人玄子:6:5
+suburb,武馆后山,OUTDOOR,96,72,false,16,山鸡;野鹿;木人桩;蒙面匪,town:WEST:回武馆|forest:EAST:竹林入口|herb:SOUTH:药王谷口,镖师老周:-9:7|账房钱九:9:-7
+forest,迷雾竹林,FOREST,104,78,false,33,野狐;竹鼠;野鹿;木人桩;毒蛇;山贼;竹林狼;恶奴;蒙面匪;独眼匪;夜枭,suburb:WEST:回到后山|cave:NORTH:洞口|ruins:SOUTH:废墟缺口,猎户阿秀:-12:-6|说书柳三:11:6
+cave,枯骨密洞,CAVE,88,66,false,24,洞蝠;枯骨武奴;铁面客;石敢当;妖道;血刀僧;尸解徒;白骨宗师,forest:SOUTH:洞口的阳光|vault:NORTH:石室石门,云游道人:-8:-7|守洞人哑伯:8:8
+herb,药王谷,FOREST,96,72,false,16,野狐;竹鼠;毒蛇;山贼,suburb:NORTH:回武馆后山|ridge:WEST:上崖小径,,
+ridge,试剑崖,OUTDOOR,104,76,false,20,木人桩;竹林狼;山贼;恶奴;独眼匪,herb:EAST:回药王谷|ruins:WEST:下崖进废墟,,
+ruins,前朝废墟,OUTDOOR,112,80,false,20,毒蛇;蒙面匪;独眼匪;铁面客;夜枭,forest:NORTH:回到竹林|ridge:EAST:回试剑崖|marsh:SOUTH:沼地小径,,
+marsh,毒沼,FOREST,100,76,false,16,毒蛇;洞蝠;夜枭;妖道,ruins:NORTH:回到废墟,,
+vault,藏经石室,CAVE,80,60,false,16,石敢当;白骨宗师;血刀僧;尸解徒,cave:SOUTH:回到密洞,,
