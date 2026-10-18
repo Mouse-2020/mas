@@ -1,7 +1,7 @@
 class_name Hud
 extends CanvasLayer
 
-# 左上角人物状态、下方战斗日志、死亡遮罩。只做展示，不改状态。
+# 左上角人物状态、下方战斗日志、画面正中的两块大字遮罩（死亡、咬钩）。只做展示，不改状态。
 
 const MAX_LINES := 12
 
@@ -14,6 +14,7 @@ var _attrs: Label
 var _where: Label
 var _log: RichTextLabel
 var _death: Label
+var _fish_cue: Label
 var _lines: Array[String] = []
 
 
@@ -66,7 +67,7 @@ func _ready() -> void:
 	log_panel.add_child(_log)
 
 	var help := _make_label(
-		"左键 走/砍/说话  右键 拾取  空格 平砍  1-9 与 0 技能  Q 喝药  F 对话  T 传送门\n" +
+		"左键 走/砍/说话  右键 拾取  空格 平砍  1-9 与 0 技能  Q 喝药  F 对话  T 传送门  G 钓鱼\n" +
 		"B 背包  E 装备  J 任务簿  M 静音  F5 存档  F9 读档  F2 重开", 15)
 	help.position = Vector2(12, view_height - 46)
 	help.modulate = Color(1, 1, 1, 0.72)
@@ -75,9 +76,21 @@ func _ready() -> void:
 	_death = _make_label("", 42)
 	_death.visible = false
 	add_child(_death)
-	_death.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_death.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_death.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_overlay(_death)
+
+	# 咬钩只有半秒，日志角落里那行灰字容易看漏，所以画面正中再喊一次。
+	_fish_cue = _make_label("", 34)
+	_fish_cue.visible = false
+	add_child(_fish_cue)
+	_overlay(_fish_cue)
+
+
+## 铺满视口的居中大字。只调 set_anchors_preset 是不行的：它把 rect 原地不动地保住，
+## 于是刚 new 出来的空标签会一直停在左上角一个字符大小，offsets 必须一起归零。
+static func _overlay(label: Label) -> void:
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 
 static func _flat(background: Color) -> StyleBoxFlat:
@@ -215,6 +228,12 @@ func refresh() -> void:
 	if not p.alive:
 		var left := maxf(0.0, 2.5 - p.death_timer)
 		_death.text = "你死了  %.1f 秒后在出生点苏醒" % left
+
+	_fish_cue.visible = _session.fishing
+	if _session.fishing:
+		var biting := _session.fish_biting()
+		_fish_cue.text = "咬钩了！按 G 收竿" if biting else "已抛竿，等鱼咬钩……"
+		_fish_cue.modulate = Color(1.0, 0.84, 0.35) if biting else Color(1, 1, 1, 0.55)
 
 
 func _on_event(event: GameEvent) -> void:

@@ -9,22 +9,22 @@
 | --- | --- | --- |
 | `autoload/` | 六个全局单例，只做归属与转发，不写玩法数值 | `game.gd` 持有一局并驱动推进、`event.gd` 信号总线、`archive.gd` 存读档、`audio.gd` 发声、`inventory.gd`（单例名 `Kit`）背包与装备、`skill.gd`（`Skill`）招式学习与冷却 |
 | `system/` | 与引擎无关的玩法本体 | `session.gd` 一局运行时（移动/战斗/任务/商店/每帧推进都在这），`save/`、`economy/`、`dialogue/` |
-| `player/` | 玩家 | `unit.gd`（`PlayerUnit`：基础属性、经验升级、增益列表） |
-| `enemy/` | 敌人 | `base.gd`（`MonsterUnit` 运行时）、`monster/`（模板类 + `monsters.csv` + `database.gd`） |
-| `npc/` | 站桩角色 | `base.gd`（`NpcDef`）、`unit.gd`（`NpcUnit`，占格但砍不了）、`database.gd` + `npcs.csv` |
+| `entity/player/` | 玩家 | `unit.gd`（`PlayerUnit`：基础属性、经验升级、增益列表） |
+| `entity/enemy/` | 敌人 | `base.gd`（`MonsterUnit` 运行时）、`monster/`（模板类 + `monsters.csv` + `database.gd`） |
+| `entity/npc/` | 站桩角色 | `base.gd`（`NpcDef`）、`unit.gd`（`NpcUnit`，占格但砍不了）、`database.gd` + `npcs.csv` |
 | `combat/` | 战斗 | `damage/`（命中与伤害算法）、`skill/`（招式表 `skills.csv` 与施放结果）、`status/`（临时增益） |
 | `item/` | 物品 | `base.gd`（`ItemDef` 模板）、`items.csv`＋`database.gd`、`instance.gd`（带耐久的一件）、`inventory/`（背包＋装备栏）、`loot/`（地上掉落与掉落条目） |
 | `map/` | 地图 | `map.gd`（格子世界）、`generator.gd`（按种子生成）、`pathfinding.gd`（8 向 A*）、`maps.csv`＋`world/database.gd`（`WorldDatabase`）、`transition/`（门与连线）、`view.gd`（画面绘制与飘字）、`renderer.gd`（无头出图） |
-| `quest/` | 任务 | `base.gd`（模板）、`state.gd`（玩家进度）、`quests.csv` 十条 |
+| `quest/` | 任务 | `base.gd`（模板）、`state.gd`（玩家进度）、`quests.csv` 十一条 |
 | `ui/` | 界面 | `hud/`、`inventory/`（背包＋装备两块）、`shop/`、`skill/`（技能栏）、`dialogue/`、`menu/`（任务簿） |
 | `shared/` | 跨领域共用 | `enums.gd`、`naming.gd`（代码要点名的 id）、`rng.gd`、`grid.gd`、`unit.gd`（`Unit` 基类）、`event.gd`（`GameEvent`）、`palette.gd`、`art_gen.gd`（占位贴图）、`audio/`（程序化音效合成）、`resource/`（`StatBlock`、`csv_table.gd` 读表） |
-| `tool/` | 开发期无头工具（没有 `class_name`，主场景与 autoload 都不引用，运行时零加载；出包时可在导出预设 Excludes 里排掉） | `selftest.gd`（49 段 409 项）、`sim.gd`（机器人跑台）、`render.gd`（九张图出图） |
+| `tool/` | 开发期无头工具（没有 `class_name`，主场景与 autoload 都不引用，运行时零加载；出包时可在导出预设 Excludes 里排掉） | `selftest.gd`（54 段 465 项）、`sim.gd`（机器人跑台）、`render.gd`（九张图出图）、`bake_art.gd`、`preview.gd` |
 
-规范里还没落地的目录（`player/sprite`、`player/animation`、`combat/hitbox`、`combat/hurtbox`、
+规范里还没落地的目录（`entity/player/sprite`、`entity/player/animation`、`combat/hitbox`、`combat/hurtbox`、
 `map/tileset`、`ui/character`、`ui/common`、`system/progression`、`shared/shader`、
 `shared/audio/bgm|sfx`、`addon/`）**故意不建空目录**——git 不跟踪空目录，等有真内容时再建。
 其中 `ui/character`（角色属性面板）现在合并在 `ui/inventory/panels.gd` 里，
-`system/progression`（成长曲线）现在就是 `player/unit.gd` 的 `experience_to_next` 与 `recompute_base()`。
+`system/progression`（成长曲线）现在就是 `entity/player/unit.gd` 的 `experience_to_next` 与 `recompute_base()`。
 
 ## 二、一帧里发生了什么
 
@@ -65,13 +65,13 @@ Game._process (priority 100，排在 Main 之后)
 
 | 表 | 位置 | 模板类 |
 | --- | --- | --- |
-| 物品 | `item/items.csv`（43 件） | `item/base.gd` `ItemDef` |
+| 物品 | `item/items.csv`（47 件） | `item/base.gd` `ItemDef` |
 | 招式 | `combat/skill/skills.csv`（10 招） | `combat/skill/def.gd` `SkillDef` |
-| 怪物 | `enemy/monster/monsters.csv`（20 只） | `enemy/monster/def.gd` `MonsterDef`（掉落条目 `item/loot/drop_roll.gd`） |
-| NPC | `npc/npcs.csv`（10 位） | `npc/base.gd` `NpcDef` |
+| 怪物 | `entity/enemy/monster/monsters.csv`（20 只） | `entity/enemy/monster/def.gd` `MonsterDef`（掉落条目 `item/loot/drop_roll.gd`） |
+| NPC | `entity/npc/npcs.csv`（11 位） | `entity/npc/base.gd` `NpcDef` |
 | 地图 | `map/maps.csv`（9 张） | `map/def.gd` `MapDef`（连线 `map/transition/link.gd`、站位 `map/npc_spot.gd`） |
-| 任务 | `quest/quests.csv`（10 条） | `quest/base.gd` `QuestDef`（奖励 `quest/reward.gd`） |
-| 商店 | `system/economy/shops.csv`（2 间） | `system/economy/shop.gd` `ShopDef` |
+| 任务 | `quest/quests.csv`（11 条） | `quest/base.gd` `QuestDef`（奖励 `quest/reward.gd`） |
+| 商店 | `system/economy/shops.csv`（3 间） | `system/economy/shop.gd` `ShopDef` |
 
 CSV 由 `shared/resource/csv_table.gd` 读成上面这些带类型的 Resource，所以调用方一行没改：
 枚举列写名字或序号都认，属性块写 `k=v;k=v`，复合列用 `|` 分组、`:` 分字段——掉落
@@ -97,19 +97,20 @@ CSV 由 `shared/resource/csv_table.gd` 读成上面这些带类型的 Resource�
 
 - `shared/rng.gd` 是 uint32 xorshift 的逐位复刻：同一粒种子永远得到同一张地图、同一批怪、同一场战斗。
 - 地形不进存档：每张图按 `(地图定义, 种子)` 重生成，所以存档不会因地图漂移而坏。
-- 无头验收：`tool/selftest.gd` 49 段 409 项断言，退出码＝失败数；`tool/sim.gd` 用机器人压五条玩法线；
+- 无头验收：`tool/selftest.gd` 54 段 465 项断言，退出码＝失败数；`tool/sim.gd` 用机器人压玩法主线；
   `tool/render.gd` 出整图与视野特写。产物落 `.artifacts/`。
 - 画面验收必须开窗口（无头是 dummy 渲染器，取不到视口纹理）：
   `godot --path . -- --shot 260 --seed 808 --png .artifacts/shot.png`，它还会顺手存一次档再读回来。
 - `sim` 只做量级对照，不是回归基线（double 计时 + A* 同分次序会让机器人路线随帧序漂移）；
-  回归基线只有 `selftest` 的 409 项断言。详见 `README.md` 的"可复现性与回归基线"。
+  回归基线只有 `selftest` 的 465 项断言。详见 `README.md` 的"可复现性与回归基线"。
 
-## 五、五条玩法线现在的落点
+## 五、六条玩法线现在的落点
 
 | 线 | 数据 | 规则 | 界面 |
 | --- | --- | --- | --- |
 | 多地图与传送 | `map/maps.csv` | `map/generator.gd`、`map/map.gd`（门格与落点）、`system/session.gd` | `map/view.gd`、`ui/hud/minimap.gd` |
 | 招式与内力 | `combat/skill/` | `system/session.gd` 的施放段、`combat/damage/combat.gd` | `ui/skill/skill_bar.gd` |
-| NPC 与任务 | `npc/npcs.csv`、`quest/quests.csv` | `system/session.gd` 的对话与任务段 | `ui/dialogue/dialogue_panel.gd`、`ui/menu/quest_panel.gd` |
+| NPC 与任务 | `entity/npc/npcs.csv`、`quest/quests.csv` | `system/session.gd` 的对话与任务段 | `ui/dialogue/dialogue_panel.gd`、`ui/menu/quest_panel.gd` |
 | 商店与经济 | `system/economy/shops.csv` | `system/economy/trade.gd`（买价照表、卖价对折、耐久折算、修理按缺失条数） | `ui/shop/shop_panel.gd` |
+| 钓鱼 | `system/fishing.gd` 的鱼签与节奏常量 | `system/session.gd` 的钓鱼段（站桩状态机，单独一路 `Rng`） | `ui/hud/hud.gd` 画面正中的咬钩提示 |
 | 音效 | `shared/audio/sfx_bank.gd` 的配方与事件表 | 同左（程序化合成 PCM） | `autoload/audio.gd` |

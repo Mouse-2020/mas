@@ -42,6 +42,9 @@ static func create(def: MapDef, campaign_seed: int) -> GameMap:
 		_carve_corridor(map, map.spawn, pos)
 
 	_scatter_spawns(map, def, rng)
+	# 房子排在最后：它要拿"最终地形"来判这块地能不能站屋，见 _place_buildings。
+	if def.theme == Enums.MapTheme.TOWN:
+		_place_buildings(map, rng)
 	return map
 
 
@@ -185,6 +188,12 @@ static func _room(map: GameMap, center: Vector2i, half_width: int, half_height: 
 				map.set_terrain(pos, Enums.Terrain.FLOOR)
 
 
+## 城里那口塘。位置与半径都钉死，不进随机：渔夫 老姜 的站位是按广场中心算的固定偏移，
+## 塘一漂他就站进水里；半径漂一寸，塘边可钓的那几格也跟着漂。
+const POND_OFFSET := Vector2i(-27, 8)
+const POND_RADIUS := Vector2i(5, 4)
+
+
 static func _paint_town(map: GameMap, rng: Rng) -> void:
 	for y in map.height:
 		for x in map.width:
@@ -200,32 +209,100 @@ static func _paint_town(map: GameMap, rng: Rng) -> void:
 		for w in range(-1, 2):
 			map.set_terrain(Vector2i(center.x + w, y), Enums.Terrain.ROAD)
 
-	# 民居：固定网格排布，留出巷口，看上去像城而不是墙阵。
-	for block in 12:
-		var origin := Vector2i(6 + (block % 4) * 22, 8 + (block / 4) * 18)
-		if absi(origin.x - center.x) < 15 and absi(origin.y - center.y) < 12:
-			continue
-		_house(map, origin, rng.next_inclusive(7, 11), rng.next_inclusive(5, 8))
-	for y in range(2, map.height - 2, 3):
-		for x in range(2, map.width - 2, 3):
-			var pos := Vector2i(x, y)
-			if map.terrain_at(pos) == Enums.Terrain.FLOOR and rng.chance(0.14):
-				map.set_terrain(pos, Enums.Terrain.GRASS)
+	# 空地上的几处院落：整片刷成草皮。按格点撒、或者一半一半地撒，
+	# 泥地上出来的就不是院子而是一张污渍网。
+	for _patch in 8:
+		var patch := Vector2i(rng.next_range(5, map.width - 6), rng.next_range(5, map.height - 6))
+		var radius := rng.next_inclusive(2, 3)
+		for dy in range(-radius, radius + 1):
+			for dx in range(-radius, radius + 1):
+				# 齐边的方块在斜视图里是一块铺好的地毯，最外圈随机啃掉几口才像自己长出来的草。
+				if maxi(absi(dx), absi(dy)) == radius and rng.next(100) < 45:
+					continue
+				var pos := patch + Vector2i(dx, dy)
+				if map.terrain_at(pos) == Enums.Terrain.FLOOR:
+					map.set_terrain(pos, Enums.Terrain.GRASS)
+
+	# 城里那口塘：水不可走，所以钉死在广场西南角外——既躲开穿城的南北大街，
+	# 也躲开沿中线拉的东西主干道，否则后面的开路步骤会把塘从中劈开。
+	# 半径同样钉死：渔夫 老姜 的站位按 npc_spots 的偏移算，塘一漂他就站进水里。
+	_carve_ellipse(map, center + POND_OFFSET, POND_RADIUS.x, POND_RADIUS.y)
+	_ring_sand(map)
 
 
-static func _house(map: GameMap, origin: Vector2i, house_width: int, house_height: int) -> void:
-	for y in house_height:
-		for x in house_width:
-			var pos := origin + Vector2i(x, y)
-			if not map.in_bounds(pos):
-				continue
-			var boundary := x == 0 or y == 0 or x == house_width - 1 or y == house_height - 1
-			if not boundary:
-				map.set_terrain(pos, Enums.Terrain.FLOOR)
-				continue
-			var doorway := (y == house_height / 2 and (x == 0 or x == house_width - 1)) \
-				or (x == house_width / 2 and y == house_height - 1)
-			map.set_terrain(pos, Enums.Terrain.ROAD if doorway else Enums.Terrain.WALL)
+# ── 建筑 ──────────────────────────────────────────────────────────────
+
+## 街区网格：一格地块、四周留巷。地块原点再随机错开几格，
+## 于是街墙有进有退，而不是在斜排上排出一条笔直的队列。
+const LOT_PITCH := Vector2i(9, 8)
+const LOT_EDGE := 4
+const LOT_JITTER := Vector2i(3, 2)
+## 一块地试几种素材就收手：试不中说明这块地本来就被路占着，换一间屋子也不会突然合适。
+const LOT_TRIES := 5
+
+## 抽房用摊平的权重表而不是字典等概率：城里绝大多数该是民居与柴房，
+## 望楼、门楼要稀罕。等概率撒八十几间下来，县城会看着像一座兵器库。
+const HOUSE_LOTTERY := [
+	"house_hut", "house_hut", "house_hut", "house_shed", "house_shed", "house_shed",
+	"house_pavilion", "house_pavilion", "house_forge", "house_forge",
+	"house_shop", "house_shop", "house_tower", "house_gate",
+]
+
+## 大殿的候选位置：广场四角外侧，都躲开那条穿城而过的南北大街。
+## 抽签到它头上几乎不可能（四格见方、外圈还得整圈能走），所以这座城的主屋得点名。
+const HALL_LOTS: Array[Vector2i] = [Vector2i(2, -13), Vector2i(6, -13),
+	Vector2i(2, 10), Vector2i(6, 10)]
+
+
+## 城里盖房。一条硬规矩撑起整段逻辑：占地和它的外圈在落笔前必须整圈可走。
+## 有了它，"绕着房子走一圈"就正好是原来那条路，连通性由规矩本身保证，不用回溯搜索；
+## 顺带还保证了任意两栋房子之间至少隔一格——不会出现走不通的夹缝。
+static func _place_buildings(map: GameMap, rng: Rng) -> void:
+	_place_hall(map)
+	for row in range((map.height - LOT_EDGE * 2) / LOT_PITCH.y):
+		for col in range((map.width - LOT_EDGE * 2) / LOT_PITCH.x):
+			var lot := Vector2i(LOT_EDGE + col * LOT_PITCH.x, LOT_EDGE + row * LOT_PITCH.y) \
+				+ Vector2i(rng.next(LOT_JITTER.x + 1), rng.next(LOT_JITTER.y + 1))
+			for _try in LOT_TRIES:
+				var art := HOUSE_LOTTERY[rng.next(HOUSE_LOTTERY.size())] as String
+				if not _lot_clear(map, lot, ArtGen.house_side(art)):
+					continue
+				_stamp(map, lot, art)
+				break
+
+
+## 武馆大殿点名盖，不抽签：四格见方、外圈还得整圈能走，签到它头上的概率低到整座城
+## 常常一栋都不剩。四个候选都堵了就算了——少一栋大殿只是不好看，硬塞一栋会埋掉广场。
+static func _place_hall(map: GameMap) -> void:
+	var side := ArtGen.house_side("house_hall")
+	var center := _anchor(map)
+	for offset in HALL_LOTS:
+		var lot := center + offset
+		if _lot_clear(map, lot, side):
+			_stamp(map, lot, "house_hall")
+			return
+
+
+static func _stamp(map: GameMap, origin: Vector2i, art: String) -> void:
+	var side := ArtGen.house_side(art)
+	for dy in side:
+		for dx in side:
+			map.set_terrain(origin + Vector2i(dx, dy), Enums.Terrain.HOUSE)
+	map.add_building(Rect2i(origin.x, origin.y, side, side), art)
+
+
+## 圈要能走，块得是块裸地：压在路上等于把巷子埋了，挨着别人则两条巷挤成一条。
+static func _lot_clear(map: GameMap, origin: Vector2i, side: int) -> bool:
+	var rect := Rect2i(origin.x, origin.y, side, side)
+	for pos in GameMap.building_ring(rect):
+		if not map.is_walkable(pos):
+			return false
+	for dy in side:
+		for dx in side:
+			var terrain := map.terrain_at(origin + Vector2i(dx, dy))
+			if terrain != Enums.Terrain.FLOOR and terrain != Enums.Terrain.GRASS:
+				return false
+	return true
 
 
 # ── 公共装饰件 ────────────────────────────────────────────────────────
@@ -249,8 +326,12 @@ static func _carve_pond(map: GameMap, rng: Rng) -> void:
 
 static func _carve_water(map: GameMap, rng: Rng, scale: float) -> void:
 	var center := Vector2i(rng.next_inclusive(12, map.width - 20), rng.next_inclusive(8, 22))
-	var radius_x := maxi(3, int(rng.next_inclusive(7, 11) * scale))
-	var radius_y := maxi(3, int(rng.next_inclusive(4, 7) * scale))
+	_carve_ellipse(map, center, maxi(3, int(rng.next_inclusive(7, 11) * scale)),
+		maxi(3, int(rng.next_inclusive(4, 7) * scale)))
+	_ring_sand(map)
+
+
+static func _carve_ellipse(map: GameMap, center: Vector2i, radius_x: int, radius_y: int) -> void:
 	for dy in range(-radius_y, radius_y + 1):
 		for dx in range(-radius_x, radius_x + 1):
 			if (dx * dx) / float(radius_x * radius_x) + (dy * dy) / float(radius_y * radius_y) > 1.0:
@@ -258,6 +339,9 @@ static func _carve_water(map: GameMap, rng: Rng, scale: float) -> void:
 			var pos := center + Vector2i(dx, dy)
 			if map.is_walkable(pos):
 				map.set_terrain(pos, Enums.Terrain.WATER)
+
+
+static func _ring_sand(map: GameMap) -> void:
 	# 水陆交界刷一圈沙，边界不像地形切出来的。
 	for pos in map.all_positions():
 		var terrain := map.terrain_at(pos)

@@ -1,0 +1,16 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://bkr1yvf8xbdhj"
+
+[deps]
+
+source_file="res://entity/enemy/monster/monsters.csv"
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

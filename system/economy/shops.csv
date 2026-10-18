@@ -1,6 +1,7 @@
 # 商店表：一行一间。stock 用分号分隔物品名，价格一律照 item/items.csv，不在这里配第二遍。
 # buys_back 表示收不收旧货（卖价对折、耐久折算，见 system/economy/trade.gd）。
-# 哪间店归谁卖写在 npc/npcs.csv 的 shop_id 列，这里不重复。
+# 哪间店归谁卖写在 entity/npc/npcs.csv 的 shop_id 列，这里不重复。
 id,title,greeting,stock,buys_back
 weapon,王二铁匠铺,新刀新甲，概不赊账。旧货我也收，折价一半。,木剑;青铜剑;赤炎刀;回风刀;布衣;软甲;铁重甲;铁头盔;铁扳指;快靴;皮腰带;武谱·穿云掌,true
 medicine,孙氏药庐,药比刀便宜，命比刀贵。皮子、矿石、蛇胆都收。,活血散;大活血丹;内力丹;两仪丹;武谱·回风扫叶;武谱·金钟罩,true
+fish,老姜鱼摊,鱼刚出水，秤是新调过的。你要卖旧货，我也照折一半收。,活血散;大活血丹,true

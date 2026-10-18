@@ -219,8 +219,17 @@ func _handle_keyboard(delta: float) -> void:
 		return
 
 	_key_step_cooldown = 0.26
-	Game.session.step_player(_of(-1 if left else (1 if right else 0), -1 if up else (1 if down else 0)))
+	var step := _screen_step(up, down, left, right)
+	Game.session.step_player(_of(step.x, step.y))
 	_hud.refresh()
+
+
+## 等距画面里"屏幕正上方"是格子的 (-1,-1)，所以按键方向要先转 45° 再交给格子世界，
+## 否则按 W 会斜着往右上跑。两个键一起按时取屏幕上的合方向。
+static func _screen_step(up: bool, down: bool, left: bool, right: bool) -> Vector2i:
+	var dx := int(down) + int(right) - int(up) - int(left)
+	var dy := int(down) + int(left) - int(up) - int(right)
+	return Vector2i(clampi(dx, -1, 1), clampi(dy, -1, 1))
 
 
 static func _held(key: int) -> bool:
@@ -269,6 +278,8 @@ func _handle_key(e: InputEventKey) -> void:
 			Game.session.use_nearest_exit()
 		KEY_Q:
 			_drink_potion()
+		KEY_G:
+			Game.session.fish_toggle()
 		KEY_SPACE:
 			_attack_nearest()
 		KEY_ESCAPE:

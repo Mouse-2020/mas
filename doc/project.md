@@ -11,25 +11,26 @@
 │   ├── inventory.gd                 # 背包与装备管理
 │   └── skill.gd                     # 技能学习、冷却、释放管理
 │
-├── player/                          # 玩家相关所有内容
-│   ├── player.tscn                  # 玩家主场景
-│   ├── player.gd                    # 玩家主脚本
-│   ├── stats.gd                     # 玩家属性
-│   ├── sprite/                      # 玩家图片资源
-│   ├── animation/                   # 玩家动画
-│   └── component/                   # 玩家功能组件
-│
-├── enemy/                           # 所有敌人
-│   ├── base.tscn                    # 敌人基类场景
-│   ├── base.gd                      # 敌人基类脚本
-|   ├── monster/                     # 怪物
-│   └── boss/                        # Boss
-│
-├── npc/                             # 所有 NPC
-│   ├── base.tscn                    # NPC 基类场景
-│   ├── base.gd                      # NPC 基类脚本
-│   ├── merchant/                    # 商人
-│   └── quest/                       # 任务相关 NPC
+├── entity/                          # 会动的角色都归这一层
+│   ├── player/                      # 玩家相关所有内容
+│   │   ├── player.tscn              # 玩家主场景
+│   │   ├── player.gd                # 玩家主脚本
+│   │   ├── stats.gd                 # 玩家属性
+│   │   ├── sprite/                  # 玩家图片资源
+│   │   ├── animation/               # 玩家动画
+│   │   └── component/               # 玩家功能组件
+│   │
+│   ├── enemy/                       # 所有敌人
+│   │   ├── base.tscn                # 敌人基类场景
+│   │   ├── base.gd                  # 敌人基类脚本
+│   │   ├── monster/                 # 怪物
+│   │   └── boss/                    # Boss
+│   │
+│   └── npc/                         # 所有 NPC
+│       ├── base.tscn                # NPC 基类场景
+│       ├── base.gd                  # NPC 基类脚本
+│       ├── merchant/                # 商人
+│       └── quest/                   # 任务相关 NPC
 │
 ├── combat/                          # 战斗相关系统
 │   ├── skill/                       # 技能
@@ -69,6 +70,7 @@
 │   └── side/                        # 支线任务
 │
 ├── system/                          # 其他系统
+│   ├── fishing.gd                   # 钓鱼规则：钓点、咬钩节奏、按图换鱼签
 │   ├── dialogue/                    # 对话逻辑
 │   ├── economy/                     # 经济
 │   ├── progression/                 # 成长

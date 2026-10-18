@@ -49,12 +49,15 @@ const NPC_ACCOUNT := "账房钱九"
 const NPC_PRIEST := "云游道人"
 const NPC_KEEPER := "守洞人哑伯"
 const NPC_STORYTELLER := "说书柳三"
+const NPC_FISHERMAN := "渔夫老姜"
 
 # ---- 商店（id 落进存档） ----
 const SHOP_WEAPON := "weapon"
 const SHOP_MEDICINE := "medicine"
+const SHOP_FISH := "fish"
 const SHOP_WEAPON_NAME := "王二铁匠铺"
 const SHOP_MEDICINE_NAME := "孙氏药庐"
+const SHOP_FISH_NAME := "老姜鱼摊"
 
 # ---- 技能（id 落进存档） ----
 const SKILL_SLASH := "slash"
@@ -77,6 +80,7 @@ const QUEST_HIDE := "q_hide"
 const QUEST_WOLF := "q_wolf"
 const QUEST_BONES := "q_skeleton"
 const QUEST_MASTER := "q_king"
+const QUEST_FISH := "q_fish"
 
 # ---- 物品 ----
 const ITEM_GOLD := "金币"
@@ -115,3 +119,9 @@ const ITEM_BOOK_MOON := "武谱·回风扫叶"
 const ITEM_BOOK_BOLT := "武谱·穿云掌"
 const ITEM_BOOK_SHIELD := "武谱·金钟罩"
 const ITEM_BOOK_FIRE := "武谱·燎原剑"
+
+# 钓鱼上来的四样。系统层按 theme 抽签时要点名，所以不能只活在 CSV 里。
+const ITEM_FISH_CRUCIAN := "鲫鱼"
+const ITEM_FISH_CARP := "鲤鱼"
+const ITEM_FISH_GRASS := "草鱼"
+const ITEM_FISH_BLACK := "黑鱼"

@@ -26,11 +26,18 @@ var _player_path: Array = []
 var _move_progress := 0.0
 var _player_attack_cooldown := 0.0
 var _next_uid := 1
+var _fishing_rng: Rng
+var _fishing := false
+var _fish_wait := 0.0
+var _fish_bite_left := 0.0
+var _fishing_at := Vector2i.ZERO
 
 
 func _init(p_seed: int) -> void:
 	seed = p_seed
 	_rng = Rng.new(p_seed)
+	# 钓鱼单独一路随机：咬钩节奏不该扰动怪物掉落与刷新那一串数。
+	_fishing_rng = Rng.new((p_seed ^ 0x5EED17) & 0xFFFFFFFF)
 
 	var home := _runtime(WorldDatabase.get_def(HOME_MAP_ID))
 	# 出生点可能正好被 NPC 占了（城里广场就是 NPC 站的地方）。
@@ -1112,6 +1119,88 @@ func move_bag_item(from: int, to: int) -> void:
 	player.bag.move(from, to)
 
 
+# ── 钓鱼 ──────────────────────────────────────────────────────────────
+
+var fishing: bool:
+	get:
+		return _fishing
+
+
+## 浮漂已经沉下去了——HUD 拿这个决定喊"收竿"还是"等着"。
+func fish_biting() -> bool:
+	return _fishing and _fish_wait <= 0.0
+
+
+func can_cast_line() -> bool:
+	return player.alive and not _fishing and Fishing.spot(map, player.position)
+
+
+## G 键：没下竿就下竿，已下竿就收竿。
+func fish_toggle() -> void:
+	if _fishing:
+		_reel_in()
+	else:
+		_cast_line()
+
+
+func _cast_line() -> void:
+	if not player.alive:
+		_raise(Enums.GameEventType.BLOCKED, "人都站不稳，钓什么鱼", player.position, 0)
+		return
+	if not Fishing.spot(map, player.position):
+		_raise(Enums.GameEventType.INFO, "这一格旁边没有水", player.position, 0)
+		return
+	if player.bag.free_slots == 0:
+		_raise(Enums.GameEventType.BLOCKED, "背包满了，钓上来也没处放", player.position, 0)
+		return
+	_fishing = true
+	_fishing_at = player.position
+	_fish_wait = Fishing.wait_seconds(_fishing_rng)
+	_fish_bite_left = float(Fishing.BITE_WINDOW) / 10.0
+	_raise(Enums.GameEventType.INFO, "抛出鱼竿，浮漂在水面轻轻打转", player.position, 0)
+
+
+func _reel_in() -> void:
+	if _fish_wait > 0.0:
+		_stop_fishing()
+		_raise(Enums.GameEventType.INFO, "收得太早，水花一响，鱼散了", player.position, 0)
+		return
+	var fish := ItemDatabase.get_def(Fishing.catch_of(map.theme, _fishing_rng))
+	var placed := player.bag.add(fish, 1, _take_uid(fish.id))
+	_stop_fishing()
+	if placed <= 0:
+		_raise(Enums.GameEventType.BLOCKED, "鱼都上来了，背包却塞不下", player.position, 0)
+		return
+	_raise(Enums.GameEventType.LOOT, "钓上 %s x%d" % [fish.display_name, placed], player.position, placed)
+
+
+func _stop_fishing() -> void:
+	_fishing = false
+	_fish_wait = 0.0
+	_fish_bite_left = 0.0
+
+
+func _tick_fishing(delta: float) -> void:
+	if not _fishing:
+		return
+	# 挪窝就算收竿：钓鱼是站桩的活，走两步鱼自然散了。
+	if not player.alive or player.position != _fishing_at:
+		_stop_fishing()
+		_raise(Enums.GameEventType.INFO, "人一走开，鱼竿在塘边点了两下", player.position, 0)
+		return
+	if _fish_wait > 0.0:
+		_fish_wait = maxf(0.0, _fish_wait - delta)
+		if _fish_wait > 0.0:
+			return
+		_raise(Enums.GameEventType.INFO, "浮漂一头沉了下去！", player.position, 0)
+		return
+	_fish_bite_left = maxf(0.0, _fish_bite_left - delta)
+	if _fish_bite_left > 0.0:
+		return
+	_stop_fishing()
+	_raise(Enums.GameEventType.INFO, "浮漂不动了，鱼已经走了", player.position, 0)
+
+
 # ── 每帧驱动 ──────────────────────────────────────────────────────────
 
 func tick(delta_seconds: float) -> void:
@@ -1121,6 +1210,8 @@ func tick(delta_seconds: float) -> void:
 
 	for skill_id in _cooldowns.keys():
 		_cooldowns[skill_id] = maxf(0.0, _cooldowns[skill_id] - delta)
+
+	_tick_fishing(delta)
 
 	if player.alive:
 		_advance_player_path(delta)

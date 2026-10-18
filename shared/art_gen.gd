@@ -1,12 +1,119 @@
 class_name ArtGen
 extends RefCounted
 
-# 占位美术全部代码生成：不引用任何贴图素材，
-# 只保证"看得出这是草地、那是树、这把是剑"。等正式素材到位时只需要换掉这里。
+# 画面素材的唯一入口。正式贴图烘在 shared/art/ 下（tool/bake_art.gd 从原图烘出来），
+# 这里只负责"按名字取贴图 + 记住它在画面上占多大"。
+#
+# 取不到贴图时回落到下面那批程序化画法：素材没导入、导出预设漏文件、或者干脆想裸跑工程，
+# 画面都不该是空的。回落画法同时是 UI 图标的正职——43 件物品与 10 招的图标一直是代码画的，
+# 小尺寸下比贴图更清楚，没必要换。
+#
+# 约定：烘焙尺寸 == 画面尺寸（1:1 画，运行时不做缩放），所以贴图的缩放质量在烘焙时就定死了。
 
 const TILE := 32
+## 等距地面对角线的宽高，2:1 是这一路的通用比例（一格铺成一个 64x32 的菱形）。
+const TILE_W := 64
+const TILE_H := 32
 
 const FONT_PATH := "res://shared/font/puhuiti.ttf"
+const ART_DIR := "res://shared/art/"
+
+## 名字 → 画面高度（像素）。烘焙台按这张表决定每张立绘烘多高，
+## 表里没有的名字会被烘焙台直接拒绝，省得两边各写一套然后悄悄对不上。
+const ART_SIZES := {
+	"unit_player": 78,
+	# 走路帧：正面与背面的包围盒顶到竖起的剑尖，所以和站姿同高；侧身那四帧盒顶只是发髻，
+	# 按"身体等高"折到 64，否则一转身人就大一圈。数值改动只需重烘，运行时读的是贴图实际尺寸。
+	"unit_player_f0": 78, "unit_player_f1": 78, "unit_player_f2": 78, "unit_player_f3": 78,
+	"unit_player_b0": 78, "unit_player_b1": 78, "unit_player_b2": 78, "unit_player_b3": 78,
+	"unit_player_r0": 64, "unit_player_r1": 64, "unit_player_r2": 64, "unit_player_r3": 64,
+	"mon_shanji": 46, "mon_yelu": 82, "mon_murenzhuang": 74, "mon_zhulinlang": 62,
+	"mon_mengmianfei": 76, "mon_dongfu": 44, "mon_kuguwunu": 78, "mon_baiguzongshi": 104,
+	"mon_yehu": 44, "mon_zhushu": 34, "mon_dushe": 34, "mon_shanzei": 74,
+	"mon_enu": 68, "mon_duyanfei": 76, "mon_tiemianke": 82, "mon_yexiao": 52,
+	"mon_yaodao": 80, "mon_shigandang": 88, "mon_xuedaosen": 84, "mon_shijietu": 78,
+	"npc_elder": 74, "npc_vendor": 74, "npc_healer": 72, "npc_mage": 74,
+	"npc_guard": 74, "npc_hunter": 72, "npc_guide": 74,
+	"prop_bamboo": 150, "prop_pine": 140, "prop_deadtree": 152, "prop_stalagmite": 96,
+	# 城里那八栋。高度按"这栋屋脊有几层人高"定，占地边长见 HOUSE_ART；
+	# 两者靠自检里那条宽度约束钉在一起。
+	"house_hut": 150, "house_shed": 155, "house_pavilion": 165, "house_forge": 150,
+	"house_tower": 250, "house_shop": 250, "house_gate": 265, "house_hall": 315,
+}
+
+const PLAYER_ART := "unit_player"
+
+## 走路帧的朝向。左侧不出图：把右侧镜像一下就是，省一张原图与四张切片。
+const FACE_FRONT := 0
+const FACE_BACK := 1
+const FACE_RIGHT := 2
+const FACE_LEFT := 3
+const WALK_PREFIX := ["unit_player_f", "unit_player_b", "unit_player_r"]
+const WALK_FRAMES := 4
+
+## 怪物 id → 素材名。id 是中文且落进存档，素材名是 ASCII 文件名，两头都别改拼写。
+const MONSTER_ART := {
+	"山鸡": "mon_shanji", "野鹿": "mon_yelu", "木人桩": "mon_murenzhuang", "竹林狼": "mon_zhulinlang",
+	"蒙面匪": "mon_mengmianfei", "洞蝠": "mon_dongfu", "枯骨武奴": "mon_kuguwunu", "白骨宗师": "mon_baiguzongshi",
+	"野狐": "mon_yehu", "竹鼠": "mon_zhushu", "毒蛇": "mon_dushe", "山贼": "mon_shanzei",
+	"恶奴": "mon_enu", "独眼匪": "mon_duyanfei", "铁面客": "mon_tiemianke", "夜枭": "mon_yexiao",
+	"妖道": "mon_yaodao", "石敢当": "mon_shigandang", "血刀僧": "mon_xuedaosen", "尸解徒": "mon_shijietu",
+}
+
+## key 与 entity/npc/base.gd 里 NpcDef.palette 的取值约定一致，不要改。
+const NPC_ART := {
+	"elder": "npc_elder", "vendor": "npc_vendor", "healer": "npc_healer", "mage": "npc_mage",
+	"guard": "npc_guard", "hunter": "npc_hunter", "guide": "npc_guide",
+}
+
+## 建筑素材 → 占地边长（格）。生成器照这个数圈地，渲染层照它决定谁挡住谁，
+## 所以边长一改全城重排；素材表里的高度也得跟着改，约束见 house_span_ok。
+const HOUSE_ART := {
+	"house_hut": 2, "house_shed": 2, "house_pavilion": 2, "house_forge": 2,
+	"house_tower": 2, "house_shop": 3, "house_gate": 3, "house_hall": 4,
+}
+
+## 屋檐最多往占地外探半格。再宽就会压到隔壁那条巷子上，再窄就盖不住自己那块菱形底。
+const HOUSE_EAVES := 1.5
+
+
+static func house_side(art_name: String) -> int:
+	return int(HOUSE_ART.get(art_name, 2))
+
+
+## 烘出来的宽度配不配得上这块地皮。换了原图忘了改占地边长，画面就是房子互相叠进院子，
+## 这种错肉眼看着只"有点挤"，所以交给自检来判。
+static func house_span_ok(art_name: String, width: int) -> bool:
+	var base := float(TILE_W * house_side(art_name))
+	return float(width) >= base and float(width) <= base * HOUSE_EAVES
+
+const GROUND_ART := {
+	Enums.Terrain.FLOOR: "gnd_floor",
+	Enums.Terrain.GRASS: "gnd_grass",
+	Enums.Terrain.ROAD: "gnd_road",
+	Enums.Terrain.SAND: "gnd_sand",
+	Enums.Terrain.WATER: "gnd_water",
+	Enums.Terrain.WALL: "gnd_wall",
+	Enums.Terrain.ROCK: "gnd_rock",
+	Enums.Terrain.TREE: "gnd_grass",
+}
+
+## 四张图的地形各有一层色温：洞窟发青、竹林发绿、城里偏暖，同一套贴图跑出九张图的气象。
+## 系数都收在 ±10% 上下：再狠一点，菱形之间的明暗差就会把地面拧成棋盘。
+const THEME_TINT := {
+	Enums.MapTheme.TOWN: Color(1.05, 1.0, 0.93),
+	Enums.MapTheme.OUTDOOR: Color(1.0, 1.0, 1.0),
+	Enums.MapTheme.FOREST: Color(0.9, 0.98, 0.9),
+	Enums.MapTheme.CAVE: Color(0.74, 0.76, 0.88),
+}
+
+## 立绘吃同一层色温，但只吃地面的一半：压太狠，洞里的怪就糊成一片黑。
+const THEME_FIGURE_TINT := {
+	Enums.MapTheme.TOWN: Color(1.03, 1.0, 0.95),
+	Enums.MapTheme.OUTDOOR: Color(1.0, 1.0, 1.0),
+	Enums.MapTheme.FOREST: Color(1.02, 1.02, 0.98),
+	Enums.MapTheme.CAVE: Color(0.86, 0.88, 0.98),
+}
 
 static var _cache := {}
 static var _font: Font = null
@@ -21,6 +128,114 @@ static func ui_font() -> Font:
 			_font = ThemeDB.fallback_font
 	return _font
 
+
+# ── 贴图取用 ────────────────────────────────────────────────────────
+
+## 一张 64x32 的等距菱形地面。贴图烘好了菱形形状，画的时候只要把四角摆对。
+static func ground_tile(terrain: int) -> Texture2D:
+	var name := GROUND_ART.get(terrain, "gnd_floor") as String
+	return _art(name)
+
+
+## 站立物的立绘（人、怪、树、石笋）。脚底对齐菱形中心，所以高度就是画面高度。
+static func billboard(art_name: String) -> Texture2D:
+	return _art(art_name)
+
+
+## 立绘的调制色：让竹子和人一起泡在这张图的气象里，而不是亮闪闪地贴在背景上。
+static func figure_tint(theme: int) -> Color:
+	return THEME_FIGURE_TINT.get(theme, Color(1, 1, 1)) as Color
+
+
+static func billboard_size(art_name: String) -> Vector2:
+	var texture := billboard(art_name)
+	if texture == null:
+		return Vector2(TILE, float(ART_SIZES.get(art_name, TILE)))
+	return Vector2(texture.get_width(), texture.get_height())
+
+
+static func monster_art(monster_id: String) -> String:
+	return MONSTER_ART.get(monster_id, "") as String
+
+
+## 朝向 + 帧号 → 走路帧素材名。帧号随便给多大都行，内部取模。
+static func walk_art(face: int, frame: int) -> String:
+	var slot := FACE_RIGHT if face == FACE_LEFT else face
+	return "%s%d" % [WALK_PREFIX[slot], posmod(frame, WALK_FRAMES)]
+
+
+## 这一朝向要不要左右镜像着画（只有左侧是借右侧的图）。
+static func walk_flips(face: int) -> bool:
+	return face == FACE_LEFT
+
+
+static func npc_art(palette: String) -> String:
+	return NPC_ART.get(palette, NPC_ART["guide"]) as String
+
+
+## 树按地图主题换种：竹林长竹、洞窟立石笋、野外与城里松树为主，废墟那种枯树掺一点。
+static func prop_art(theme: int, cell: Vector2i) -> String:
+	var pick := absi(_hash("%d:%d" % [cell.x, cell.y])) % 100
+	match theme:
+		Enums.MapTheme.FOREST:
+			return "prop_bamboo" if pick < 68 else "prop_pine"
+		Enums.MapTheme.CAVE:
+			return "prop_stalagmite" if pick < 74 else "prop_deadtree"
+		Enums.MapTheme.TOWN:
+			return "prop_pine"
+		_:
+			return "prop_pine" if pick < 62 else "prop_deadtree"
+
+
+## 一格地面的最终颜色：主题色温 × 每格随机明暗 × 额外的贴墙压暗 × 水面波光。
+## 菱形贴图本身是无色噪声，重复感全靠这里打破。
+static func ground_tint(terrain: int, theme: int, cell: Vector2i, ao := 0.0, shimmer := 0.0) -> Color:
+	var tint: Color = THEME_TINT.get(theme, Color(1, 1, 1))
+	# ±4% 而不是 ±12%：等距画面里相邻菱形共享两条边，明暗差一大，草地自己就变成格子纹。
+	var jitter := 0.96 + absi(_hash("g%d:%d" % [cell.x, cell.y])) % 9 / 100.0
+	var k := jitter * (1.0 - ao)
+	if terrain == Enums.Terrain.WATER:
+		k *= 1.0 + 0.07 * shimmer
+	return Color(tint.r * k, tint.g * k, tint.b * k, 1.0)
+
+
+## 路和水面要连着看：换朝向等于在这一格把源图拧 90°，一条官道于是碎成之字。
+## 其余地形是均匀噪声，四种朝向随便换，正好打散"同一张图 repeated 到发晕"。
+const STRAIGHT_UV := [Enums.Terrain.ROAD, Enums.Terrain.WATER]
+
+
+## 一格该用菱形贴图的哪个象限：把源图旋转/镜像出四个朝向，同一张无缝贴图能拼出四种铺法。
+## 返回值是 UV 四角（顶、右、底、左）。
+static func ground_uv(terrain: int, cell: Vector2i) -> PackedVector2Array:
+	var variant := 0 if STRAIGHT_UV.has(terrain) \
+		else absi(_hash("v%d:%d" % [cell.x, cell.y])) % 4
+	match variant:
+		1:
+			return PackedVector2Array([Vector2(1, 0), Vector2(1, 1), Vector2(0, 1), Vector2(0, 0)])
+		2:
+			return PackedVector2Array([Vector2(1, 1), Vector2(0, 1), Vector2(0, 0), Vector2(1, 0)])
+		3:
+			return PackedVector2Array([Vector2(0, 1), Vector2(0, 0), Vector2(1, 0), Vector2(1, 1)])
+	return PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+
+
+static func shadow() -> Texture2D:
+	return _art("shadow")
+
+
+static func glow() -> Texture2D:
+	return _art("glow")
+
+
+static func _art(art_name: String) -> Texture2D:
+	var key := "art:" + art_name
+	if not _cache.has(key):
+		var loaded: Texture2D = load(ART_DIR + art_name + ".png")
+		_cache[key] = loaded
+	return _cache[key]
+
+
+# ── UI 图标（一直是代码画的，小尺寸下比贴图清楚）────────────────────
 
 static func ground(terrain: int) -> Texture2D:
 	return _cached("t:%d" % terrain, _build_terrain.bind(terrain))
@@ -50,6 +265,11 @@ static func _cached(key: String, build: Callable) -> Texture2D:
 	if not _cache.has(key):
 		_cache[key] = ImageTexture.create_from_image(build.call())
 	return _cache[key]
+
+
+# ── 占位画法：贴图缺失时立绘长这样 ─────────────────────────────────
+
+const PLACEHOLDER := Vector2i(TILE, TILE)
 
 
 static func _shade(c: Color, k: float) -> Color:
@@ -90,8 +310,6 @@ static func _ring(img: Image, cx: int, cy: int, r: int, color: Color) -> void:
 		if px >= 0 and py >= 0 and px < img.get_width() and py < img.get_height():
 			img.set_pixel(px, py, color)
 
-
-# ── 地形 ────────────────────────────────────────────────────────────
 
 static func _build_terrain(terrain: int) -> Image:
 	var base_color := Palette.terrain_color(terrain)
@@ -143,8 +361,6 @@ static func _build_terrain(terrain: int) -> Image:
 	return img
 
 
-# ── 单位 ────────────────────────────────────────────────────────────
-
 static func _build_monster(monster_id: String) -> Image:
 	var body := Palette.monster_color(monster_id)
 	var img := _blank()
@@ -179,9 +395,6 @@ static func _build_player() -> Image:
 	return img
 
 
-# ── NPC ─────────────────────────────────────────────────────────────
-
-# key 与 npc/base.gd 里 NpcDef.palette 的取值约定一致，不要改。
 static func _npc_color(palette: String) -> Color:
 	match palette:
 		"elder":
@@ -214,8 +427,6 @@ static func _build_npc(palette: String) -> Image:
 	img.set_pixel(18, 12, Color(0.1, 0.1, 0.12))
 	return img
 
-
-# ── 技能图标 ────────────────────────────────────────────────────────
 
 static func _build_skill(def: SkillDef) -> Image:
 	var img := _blank()
@@ -253,8 +464,6 @@ static func _build_skill(def: SkillDef) -> Image:
 			_rect(img, 12, 10, 9, 12, steel)
 	return img
 
-
-# ── 物品图标 ────────────────────────────────────────────────────────
 
 static func _build_item(def: ItemDef) -> Image:
 	var img := _blank()

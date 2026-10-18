@@ -8,6 +8,8 @@
 
 # 无头验证台的产物：--shot 截图、render 全图、sim 存档
 .artifacts/
+# ImageGen 的默认落点，原图请挪进 .artifacts/raw/ 再烘（留在这里会被引擎导入）
+vibe_images/
 *.log
 run-*.json
 shot*.png

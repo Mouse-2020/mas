@@ -17,7 +17,9 @@ enum Direction {
 
 enum CellState { WALKABLE, BLOCKED, OCCUPIED }
 
-enum Terrain { FLOOR, GRASS, ROAD, SAND, WATER, WALL, ROCK, TREE }
+## 多一种地形只往末尾加。地形不进存档（每张图按种子重生成），插队坏不了档，
+## 但会把"这一格是几号地形"的调试口径整个改一遍，不值当。
+enum Terrain { FLOOR, GRASS, ROAD, SAND, WATER, WALL, ROCK, TREE, HOUSE }
 
 enum MapTheme { TOWN, OUTDOOR, FOREST, CAVE }
 
@@ -98,5 +100,7 @@ static func terrain_name(terrain: int) -> String:
 			return "岩石"
 		Terrain.TREE:
 			return "树"
+		Terrain.HOUSE:
+			return "屋子"
 		_:
 			return "地面"

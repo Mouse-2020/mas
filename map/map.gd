@@ -1,7 +1,7 @@
 class_name GameMap
 extends RefCounted
 
-# 一张已生成的地图：整数网格 + 出生点 + 刷怪点 + 门 + NPC 站位。
+# 一张已生成的地图：整数网格 + 出生点 + 刷怪点 + 门 + NPC 站位 + 建筑。
 # 内容由 MapGenerator 按 (地图定义, 种子) 决定，所以存档只需要记这两样。
 
 const TILE_SIZE := 32
@@ -18,6 +18,10 @@ var cells: Array = []
 var spawn := Vector2i.ZERO
 var monster_spawns: Array = []
 var exits: Array = []
+
+## 一栋建筑 = {"rect": 方形占地, "art": 素材名}。占地那几格的地形已经是 HOUSE，
+## 这里再记一份是为了整栋画：一格一画会把屋顶切成一排台阶。
+var buildings: Array = []
 
 ## { npc_id: Vector2i }
 var npc_positions := {}
@@ -62,7 +66,8 @@ func set_terrain(pos: Vector2i, terrain: int) -> void:
 ## 静态可走性由地形决定，动态占位由 GameSession 管。
 static func terrain_is_walkable(terrain: int) -> bool:
 	return terrain != Enums.Terrain.WATER and terrain != Enums.Terrain.WALL \
-		and terrain != Enums.Terrain.ROCK and terrain != Enums.Terrain.TREE
+		and terrain != Enums.Terrain.ROCK and terrain != Enums.Terrain.TREE \
+		and terrain != Enums.Terrain.HOUSE
 
 
 func is_walkable(pos: Vector2i) -> bool:
@@ -92,6 +97,27 @@ func put_npc(npc_id: String, pos: Vector2i) -> void:
 	if not in_bounds(pos):
 		return
 	npc_positions[npc_id] = pos
+
+
+func add_building(rect: Rect2i, art: String) -> void:
+	buildings.append({ "rect": rect, "art": art })
+
+
+## 一栋建筑在画面上的落脚点：占地最靠镜头的那个角所在的浮点格。
+## 占地是正方形，所以这个角正好落在菱形底的水平正中，立绘底边中心对齐它就不会左右偏。
+static func building_anchor(rect: Rect2i) -> Vector2:
+	return Vector2(float(rect.end.x) - 0.5, float(rect.end.y) - 0.5)
+
+
+## 占地的外圈：画地上阴影要用它把整栋房子从地面里挖出来。
+static func building_ring(rect: Rect2i) -> Array:
+	var out: Array = []
+	for dy in range(-1, rect.size.y + 1):
+		for dx in range(-1, rect.size.x + 1):
+			if dx >= 0 and dy >= 0 and dx < rect.size.x and dy < rect.size.y:
+				continue
+			out.append(Vector2i(rect.position.x + dx, rect.position.y + dy))
+	return out
 
 
 func exit_at(pos: Vector2i) -> MapExit:

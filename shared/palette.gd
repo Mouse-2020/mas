@@ -23,6 +23,8 @@ static func terrain_color(terrain: int) -> Color:
 			return Color8(92, 88, 86)
 		Enums.Terrain.TREE:
 			return Color8(38, 82, 48)
+		Enums.Terrain.HOUSE:
+			return Color8(126, 88, 68)
 		_:
 			return Color8(122, 104, 78)
 

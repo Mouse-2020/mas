@@ -1,7 +1,7 @@
 extends SceneTree
 
 # 武林风 · 无头自检台。
-# 49 段、409 项断言：地图生成、寻路、移动、战斗、掉落、技能、对话、任务、商店、音效、存读档都覆盖。
+# 54 段、465 项断言：地图生成、寻路、移动、战斗、掉落、技能、对话、任务、商店、钓鱼、音效、存读档都覆盖。
 # 显示文案一律取 Naming 常量。
 # 退出码 = 失败项数，所以 CI 里 `$?` 直接可用。
 
@@ -72,6 +72,11 @@ func _initialize() -> void:
 	_save_restore_round_trip()
 	_save_keeps_world_progress()
 	_png_signature()
+	_iso_projection()
+	_walk_animation()
+	_town_buildings()
+	_town_pond()
+	_fishing()
 	_font_is_wired_up()
 
 	print("✔ %d 项自检全部通过" % _checks if _failures == 0
@@ -610,7 +615,7 @@ func _world_tables() -> void:
 	_check("每张图从城里顺着门都走得通", stranded.is_empty(), _join(stranded, ","))
 
 	var town := WorldDatabase.get_def(Naming.MAP_TOWN)
-	_check("青云武馆是安全区且摆满 NPC", town.safe and town.npc_spots.size() == 4)
+	_check("青云武馆是安全区且摆满 NPC", town.safe and town.npc_spots.size() == 5)
 	var lonely: Array = []
 	for entry in WorldDatabase.all_defs():
 		var def := entry as MapDef
@@ -636,7 +641,7 @@ func _world_tables() -> void:
 	_check("NPC 指的商店都在表里", shop_ids.size() > 0 and _all_of(shop_ids,
 		func(id): return ShopDatabase.try_get(id) != null), _join(shop_ids, ","))
 
-	# 反方向也要查：npc/npcs.csv 里新加一位却忘了在地图表配站位，他就永远不会出现在游戏里。
+	# 反方向也要查：entity/npc/npcs.csv 里新加一位却忘了在地图表配站位，他就永远不会出现在游戏里。
 	var standing := {}
 	for entry in WorldDatabase.all_defs():
 		for spot_variant in (entry as MapDef).npc_spots:
@@ -1405,10 +1410,13 @@ func _every_item_can_be_obtained() -> void:
 	for entry in QuestDatabase.all_defs():
 		for reward_variant in (entry as QuestDef).rewards:
 			sources[(reward_variant as QuestReward).item_id] = "任务奖励"
+	for theme in Fishing.CATCH.keys():
+		for fish_variant in Fishing.CATCH[theme]:
+			sources[fish_variant as String] = "钓竿"
 	var orphans: Array = []
 	for entry in ItemDatabase.all_defs():
 		var def := entry as ItemDef
-		# 金币由杀怪直接进包，不走这三条来路。
+		# 金币由杀怪直接进包，不走这四条来路。
 		if def.type == Enums.ItemType.GOLD:
 			continue
 		if not sources.has(def.id):
@@ -2203,7 +2211,7 @@ func _save_keeps_world_progress() -> void:
 	var empty := SaveGame.restore(_blank_save(5))
 	_check("空存档读出来还是新手村", empty.map_id == GameSession.HOME_MAP_ID and empty.map.safe)
 	_check("空存档不凭空造怪", empty.monsters.is_empty())
-	_check("空存档把四个 NPC 摆回原位", empty.npcs.size() == 4
+	_check("空存档把五个 NPC 摆回原位", empty.npcs.size() == 5
 		and _all_of(empty.npcs, func(n): return empty.unit_at((n as NpcUnit).position) is NpcUnit))
 	_check("空存档的等级与背包是干净的", empty.player.level == 1 and empty.bag.used_slots == 0
 		and _known_ids(empty).is_empty() and empty.quests.is_empty())
@@ -2250,6 +2258,416 @@ func _png_signature() -> void:
 		"%dx%d" % [shot.get_width(), shot.get_height()])
 	_check("视野特写比整图小", WorldRenderer.render(_field(6), 8, 10).get_width() < shot.get_width())
 	_check("渲染出来的不是纯色", bytes.size() > 10000, "%d 字节的 PNG" % bytes.size())
+
+
+## 等距投影是"点哪儿走到哪儿"的地基：正逆变换不闭合，鼠标点和落脚就会错开半格。
+## 菱形四角落在 (x±½, y±½) 这条尤其要紧——地面贴图就是照它烘的，歪了接缝立刻裂。
+func _iso_projection() -> void:
+	var cells := [Vector2i.ZERO, Vector2i(3, 5), Vector2i(17, 2), Vector2i(40, 40), Vector2i(95, 71)]
+	var half := [Vector2(-0.5, -0.5), Vector2(0.5, -0.5), Vector2(0.5, 0.5), Vector2(-0.5, 0.5)]
+	var round_trip := true
+	var corners_are_tile_edges := true
+	for cell in cells:
+		var at := Vector2(cell.x, cell.y)
+		if Iso.to_grid(Iso.center(at)) != cell:
+			round_trip = false
+		for i in Iso.corners(at).size():
+			if Iso.to_cell(Iso.corners(at)[i]) != at + half[i]:
+				corners_are_tile_edges = false
+	_check("格心投影再逆回来还是这一格", round_trip)
+	_check("菱形四角就是这一格的四个角", corners_are_tile_edges)
+
+	# 画家算法只按深度排序，所以"深度更大"必须等价于"屏幕上更低"，否则近处会盖不住远处。
+	var by_depth := cells.duplicate()
+	by_depth.sort_custom(func(a, b): return Iso.depth(Vector2(a.x, a.y)) < Iso.depth(Vector2(b.x, b.y)))
+	var depth_follows_screen_y := true
+	for i in range(1, by_depth.size()):
+		if Iso.center(Vector2(by_depth[i - 1].x, by_depth[i - 1].y)).y \
+				> Iso.center(Vector2(by_depth[i].x, by_depth[i].y)).y:
+			depth_follows_screen_y = false
+	_check("越近的格画得越晚、也画得越低", depth_follows_screen_y)
+
+	var bounds := Iso.map_bounds(96, 72)
+	# 最外圈菱形的尖正好压在矩形边上，而 Rect2.has_point 的右、下两边是开区间，
+	# 所以判"包住"要留一线，否则贴边的点反被算成越界。
+	var room := bounds.grow(0.5)
+	var fits := true
+	for y in [0, 71]:
+		for x in [0, 95]:
+			for corner in Iso.corners(Vector2(x, y)):
+				if not room.has_point(corner):
+					fits = false
+	_check("地图外接矩形包住最外圈菱形", fits, "%.0fx%.0f" % [bounds.size.x, bounds.size.y])
+
+	var box := Iso.visible_box(Vector2.ZERO, Vector2(1920.0, 1080.0))
+	var covers := true
+	for corner in [Vector2.ZERO, Vector2(1920.0, 0), Vector2(1920.0, 1080.0), Vector2(0, 1080.0)]:
+		var cell := Iso.to_cell(corner)
+		if cell.x < box.position.x or cell.y < box.position.y \
+				or cell.x > float(box.end.x) or cell.y > float(box.end.y):
+			covers = false
+	_check("可见范围算得下屏幕四角", covers, "%s" % box)
+
+	# 烘焙与画面尺寸是一条口头约定：贴图按 1:1 烘，运行时不缩放。改了一头忘了另一头，
+	# 画面只会"稍微糊一点"，没人会当 bug 报，所以在这里钉死。
+	var tile := ArtGen.ground_tile(Enums.Terrain.FLOOR)
+	_check("地面贴图按画面尺寸烘", tile != null
+		and tile.get_width() == ArtGen.TILE_W and tile.get_height() == ArtGen.TILE_H,
+		"%dx%d" % [tile.get_width(), tile.get_height()])
+	var hero := ArtGen.billboard(ArtGen.PLAYER_ART)
+	_check("立绘按登记高度烘", hero != null
+		and hero.get_height() == int(ArtGen.ART_SIZES[ArtGen.PLAYER_ART]),
+		"%d 像素" % (0 if hero == null else hero.get_height()))
+
+
+## 走路动画的三条地基：朝向怎么定、左侧是不是只靠镜像、素材到底在不在。
+## 这三条都是"错了我自己看不出来"的那种：朝向接反画面照样动，缺帧只会退回程序化立绘。
+func _walk_animation() -> void:
+	# 用 load 拿脚本，不直接写 WorldView：主循环脚本静态编译时会把 view.gd 一起拖进去，
+	# 而那时自动加载单例还没注册，Event 会当场"找不到标识符"。
+	var view := load("res://map/view.gd")
+	_check("世界视图脚本读得到", view != null)
+	if view == null:
+		return
+
+	# 一格步进换算到屏幕是"横 32 竖 16"，所以斜着走看着更接近横移，归左右才对得上直觉。
+	var faces := [
+		[Vector2(1, 0), ArtGen.FACE_RIGHT], [Vector2(-1, 0), ArtGen.FACE_LEFT],
+		[Vector2(0, 1), ArtGen.FACE_LEFT], [Vector2(0, -1), ArtGen.FACE_RIGHT],
+		[Vector2(1, 1), ArtGen.FACE_FRONT], [Vector2(-1, -1), ArtGen.FACE_BACK],
+		[Vector2(1, -1), ArtGen.FACE_RIGHT], [Vector2(-1, 1), ArtGen.FACE_LEFT]]
+	var facing_ok := true
+	for row in faces:
+		if int(view._face_of(row[0] as Vector2)) != int(row[1]):
+			facing_ok = false
+	_check("八向迈步各归四向", facing_ok)
+
+	var cycle_ok := true
+	for face in [ArtGen.FACE_FRONT, ArtGen.FACE_BACK, ArtGen.FACE_RIGHT]:
+		for frame in ArtGen.WALK_FRAMES:
+			cycle_ok = cycle_ok and ArtGen.walk_art(face, frame + ArtGen.WALK_FRAMES) \
+				== ArtGen.walk_art(face, frame)
+	_check("走路帧四张一轮、绕回同一张", cycle_ok)
+	_check("左侧不另画图，只把右侧翻面",
+		ArtGen.walk_art(ArtGen.FACE_LEFT, 2) == ArtGen.walk_art(ArtGen.FACE_RIGHT, 2)
+		and ArtGen.walk_flips(ArtGen.FACE_LEFT))
+
+	var baked := true
+	for face in [ArtGen.FACE_FRONT, ArtGen.FACE_BACK, ArtGen.FACE_RIGHT]:
+		for frame in ArtGen.WALK_FRAMES:
+			var name := ArtGen.walk_art(face, frame)
+			var texture := ArtGen.billboard(name)
+			baked = baked and texture != null \
+				and texture.get_height() == int(ArtGen.ART_SIZES[name])
+	_check("十二张走路帧都真烘出来了", baked)
+
+	# 站定时脚不踩拍子：留一点余震的话，画面里全是没人动的角色在轻微抽动。
+	var still: Dictionary = view._gait(Vector2(7, 9), Vector2i(7, 9), 0.5)
+	_check("站住时步态归零", not bool(still["flip"])
+		and is_zero_approx(float(still["lean"])) and is_zero_approx(float(still["squash"])))
+	# 渲染位置是从"刚踩着的格子"往"下一步的格子"插出来的，所以 at-cell 才是前进方向。
+	# 往屏幕左下走（+y，dx-dy < 0）该镜像，往右下走（+x）不该。
+	var west: Dictionary = view._gait(Vector2(6.0, 7.4), Vector2i(6, 7), 0.5)
+	var east: Dictionary = view._gait(Vector2(6.4, 7.0), Vector2i(6, 7), 0.5)
+	_check("朝屏幕左走才镜像、右走不镜像", bool(west["flip"]) and not bool(east["flip"]))
+	var tame := true
+	for t in 12:
+		var beat: Dictionary = view._gait(Vector2(6.0, 7.4), Vector2i(6, 7), float(t) * 0.11)
+		tame = tame and absf(float(beat["lean"])) <= view.GAIT_LEAN * PI / 180.0 + 0.0001 \
+			and absf(float(beat["squash"])) <= view.GAIT_SQUASH + 0.0001
+	_check("程序化步态幅度有上限", tame)
+
+
+## 城里的房子既不能挡住路，也得真画得出来。
+## 生成器那条"占地外圈必须整圈可走"是整城连通性的唯一依据，所以先逐栋验它，
+## 再对全城做一次漫水：规矩一旦被破坏，漫水第一时间就发现有一片格子再也到不了。
+func _town_buildings() -> void:
+	var map := MapGenerator.create(WorldDatabase.get_def(Naming.MAP_TOWN), 20261016)
+	_check("城里真盖了房", map.buildings.size() >= 30, "%d 栋" % map.buildings.size())
+	if map.buildings.is_empty():
+		return
+	_check("武馆大殿盖得出来", _any_of(map.buildings,
+		func(b): return (b as Dictionary)["art"] == "house_hall"))
+
+	_check("只有城里盖房", _all_of(WorldDatabase.all_defs(), func(def_entry):
+		var def := def_entry as MapDef
+		return def.theme == Enums.MapTheme.TOWN \
+			or MapGenerator.create(def, 20261016).buildings.is_empty()))
+
+	var stamped := true
+	var ring_open := true
+	var overlaps: Array = []
+	var taken := {}
+	for entry in map.buildings:
+		var building := entry as Dictionary
+		var rect: Rect2i = building["rect"]
+		var art := building["art"] as String
+		if rect.size.x != rect.size.y or rect.size.x != ArtGen.house_side(art):
+			stamped = false
+		for dy in rect.size.y:
+			for dx in rect.size.x:
+				var cell := rect.position + Vector2i(dx, dy)
+				if map.terrain_at(cell) != Enums.Terrain.HOUSE:
+					stamped = false
+				if taken.has(cell):
+					overlaps.append(_pos(cell))
+				taken[cell] = true
+		for pos_variant in GameMap.building_ring(rect):
+			if not map.is_walkable(pos_variant as Vector2i):
+				ring_open = false
+	_check("每栋占地都刷成了屋子、边长和素材对得上", stamped)
+	_check("屋子外圈整圈走得通", ring_open)
+	_check("房子互不重叠", overlaps.is_empty(), _join(overlaps, "、"))
+	_check("屋子不可走", not map.is_walkable((map.buildings[0]["rect"] as Rect2i).position))
+	_check("整城仍是一整块走得通的地方", _stranded(map) == 0, "走不到 %d 格" % _stranded(map))
+
+	var fitted := true
+	for art_name in ArtGen.HOUSE_ART:
+		var texture: Texture2D = ArtGen.billboard(art_name as String)
+		if texture == null or not ArtGen.house_span_ok(art_name as String, texture.get_width()):
+			fitted = false
+	_check("八栋素材都烘得出、宽度也配得上占地", fitted)
+
+
+# ── 钓鱼 ──────────────────────────────────────────────────────────────
+
+## 塘的坐标在生成器里是钉死的：渔夫站位和"哪儿能下竿"都按它算。
+## 这里盯的是它别被后面的开路步骤（穿城大街、连通走廊）当成空地劈开填平。
+func _town_pond() -> void:
+	var map := MapGenerator.create(WorldDatabase.get_def(Naming.MAP_TOWN), 20261016)
+	var water: Array = []
+	for entry in map.all_positions():
+		var pos: Vector2i = entry
+		if map.terrain_at(pos) == Enums.Terrain.WATER:
+			water.append(pos)
+	_check("城里真挖出了一口塘", water.size() >= 40, "%d 格水" % water.size())
+	if water.is_empty():
+		return
+	_check("水面一格都走不得", _all_of(water, func(p): return not map.is_walkable(p)))
+	_check("塘是一整块，没被街道劈开", _is_one_blob(water))
+	_check("塘边够站人下竿", _count_where(map.all_positions(),
+		func(p): return Fishing.spot(map, p)) >= 8)
+	_check("整城仍是一整块走得通的地方", _stranded(map) == 0, "走不到 %d 格" % _stranded(map))
+
+	var session := GameSession.new_campaign(501)
+	var fisherman := _npc_by_id(session, Naming.NPC_FISHERMAN)
+	_check("渔夫站在塘边空地上", fisherman != null
+		and session.map.terrain_at(fisherman.position) != Enums.Terrain.WATER
+		and session.map.is_walkable(fisherman.position))
+	var bank := _find_bank(session)
+	_check("从出生点走得到塘边", bank != Vector2i(-1, -1)
+		and Pathfinding.find(session.map, _blocked_never, session.map.spawn, bank).size() > 1)
+
+
+## 四邻接漫水：塘里要是被划出一道路，这里就会数出两块以上。
+static func _is_one_blob(cells: Array) -> bool:
+	if cells.is_empty():
+		return true
+	var sides: Array[int] = [Enums.Direction.UP, Enums.Direction.RIGHT, Enums.Direction.DOWN, Enums.Direction.LEFT]
+	var remaining := {}
+	for entry in cells:
+		remaining[entry as Vector2i] = true
+	var queue: Array = [cells[0] as Vector2i]
+	remaining.erase(queue[0])
+	var head := 0
+	while head < queue.size():
+		var here: Vector2i = queue[head]
+		head += 1
+		for d in sides:
+			var onward := Grid.offset(here, d)
+			if not remaining.has(onward):
+				continue
+			remaining.erase(onward)
+			queue.append(onward)
+	return remaining.is_empty()
+
+
+## 塘边随便挑一格能下竿、又没人占着的地方。
+func _find_bank(session: GameSession) -> Vector2i:
+	for entry in session.map.all_positions():
+		var pos: Vector2i = entry
+		if Fishing.spot(session.map, pos) and session.unit_at(pos) == null:
+			return pos
+	return Vector2i(-1, -1)
+
+
+## 反过来：一格站得住、又离所有水都远（紧邻八格里没水）的地方。
+func _find_dry_cell(session: GameSession) -> Vector2i:
+	for entry in session.map.all_positions():
+		var pos: Vector2i = entry
+		if Fishing.spot(session.map, pos) or not session.map.is_walkable(pos):
+			continue
+		if session.unit_at(pos) == null:
+			return pos
+	return Vector2i(-1, -1)
+
+
+## 包里四条鱼一共几件。
+func _fish_in_bag(session: GameSession) -> int:
+	return session.bag.count_of(Naming.ITEM_FISH_CRUCIAN) + session.bag.count_of(Naming.ITEM_FISH_CARP) \
+		+ session.bag.count_of(Naming.ITEM_FISH_GRASS) + session.bag.count_of(Naming.ITEM_FISH_BLACK)
+
+
+## 事件流里走过这么一条没有：类型对得上，文案里含 needle。
+func _has_event(session: GameSession, type: int, needle: String) -> bool:
+	for entry in session.events:
+		var event := entry as GameEvent
+		if event.type == type and event.text.contains(needle):
+			return true
+	return false
+
+
+func _fishing() -> void:
+	var session := GameSession.new_campaign(502)
+	var bank := _find_bank(session)
+	_check("塘边找得到一格钓位", bank != Vector2i(-1, -1), _pos(bank))
+	if bank == Vector2i(-1, -1):
+		return
+	_check("站到钓位上", session.relocate_player(bank) and session.player.position == bank)
+	_check("站在水边就能下竿", session.can_cast_line())
+
+	session.fish_toggle()
+	_check("下了竿是在等鱼", session.fishing and not session.fish_biting())
+	session.fish_toggle()
+	_check("收得太早一条也没有", not session.fishing and _fish_in_bag(session) == 0)
+
+	session.fish_toggle()
+	var guard := 0
+	while not session.fish_biting() and guard < 200:
+		guard += 1
+		session.tick(0.05)
+	_check("等够了浮漂就沉", session.fish_biting(), "%d 帧后咬钩" % (guard + 1))
+	session.fish_toggle()
+	_check("咬钩窗口内收竿必上鱼", not session.fishing and _fish_in_bag(session) == 1
+		and _has_event(session, Enums.GameEventType.LOOT, "钓上"))
+
+	session.fish_toggle()
+	guard = 0
+	while session.fishing and guard < 200:
+		guard += 1
+		session.tick(0.05)
+	_check("错过窗口就空手而归", not session.fishing and _fish_in_bag(session) == 1)
+
+	session.fish_toggle()
+	var moved := session.relocate_player(_find_dry_cell(session))
+	session.tick(0.05)
+	_check("人一走开就断了竿", moved and not session.fishing and _fish_in_bag(session) == 1)
+
+	# 没水的地方按 G 不该有任何代价，只有一句话。
+	var dry := GameSession.new_campaign(503)
+	var far := _find_dry_cell(dry)
+	_check("离水的地方没得钓", far != Vector2i(-1, -1) and dry.relocate_player(far)
+		and not dry.can_cast_line() and not dry.fishing)
+	dry.fish_toggle()
+	_check("离水按竿只说一句没水", not dry.fishing and _fish_in_bag(dry) == 0
+		and _has_event(dry, Enums.GameEventType.INFO, "没有水"))
+
+	# 满包不能下竿：钓上来了没处放，鱼就该留在塘里，不能凭空消失。
+	var bulged := GameSession.new_campaign(508)
+	bulged.relocate_player(_find_bank(bulged))
+	bulged.bag.weight_limit = 100000
+	var stuffing := 0
+	while bulged.bag.free_slots > 0 and stuffing < 100:
+		stuffing += 1
+		bulged.bag.add(ItemDatabase.get_def(Naming.ITEM_WOOD_SWORD), 1)
+	var full := bulged.bag.free_slots == 0
+	bulged.fish_toggle()
+	_check("包满的时候竿都抛不出去", full and not bulged.fishing and _fish_in_bag(bulged) == 0)
+
+	# 咬钩节奏与上的是什么鱼，全由种子决定——同一粒种子永远钓到同一串。
+	var rng_a := Rng.new(504)
+	var rng_b := Rng.new(504)
+	var waits_a: Array = []
+	var waits_b: Array = []
+	for _roll in 30:
+		waits_a.append(Fishing.wait_seconds(rng_a))
+		waits_b.append(Fishing.wait_seconds(rng_b))
+	_check("同一粒种子等一样久", str(waits_a) == str(waits_b), str(waits_a))
+
+	var out_of_range := false
+	var probe_rng := Rng.new(505)
+	for _roll in 200:
+		var probe := Fishing.wait_seconds(probe_rng)
+		if probe < float(Fishing.WAIT_MIN) / 10.0 or probe > float(Fishing.WAIT_MAX) / 10.0:
+			out_of_range = true
+	_check("咬钩等待只在 0.9 到 2.6 秒之间", not out_of_range)
+	var same_catch := true
+	var fish_a := Rng.new(505)
+	var fish_b := Rng.new(505)
+	for _roll in 20:
+		if Fishing.catch_of(Enums.MapTheme.CAVE, fish_a) != Fishing.catch_of(Enums.MapTheme.CAVE, fish_b):
+			same_catch = false
+	_check("同一粒种子钓上同一条鱼", same_catch)
+
+	var bogus: Array = []
+	for theme in Fishing.CATCH.keys():
+		var table: Array = Fishing.CATCH[theme]
+		if table.is_empty():
+			bogus.append(str(theme))
+		for fish_variant in table:
+			if ItemDatabase.try_get(fish_variant as String) == null:
+				bogus.append(str(fish_variant))
+	_check("每签鱼都在物品表里", bogus.is_empty(), _join(bogus, ","))
+	var missing: Array = []
+	for def_entry in WorldDatabase.all_defs():
+		var map_theme := (def_entry as MapDef).theme
+		if not Fishing.CATCH.has(map_theme):
+			missing.append(str(map_theme))
+	_check("每张图的主题都有鱼可钓", missing.is_empty(), _join(missing, ","))
+
+	# 鱼的去向：渔夫的鱼摊收旧货，渔夫的订单收鲤鱼。
+	var seller := GameSession.new_campaign(506)
+	_stand_next_to(seller, _npc_by_id(seller, Naming.NPC_FISHERMAN))
+	var stall := ShopDatabase.try_get(Naming.SHOP_FISH)
+	_check("鱼摊收旧货", stall != null and stall.buys_back)
+	seller.player.bag.add(ItemDatabase.get_def(Naming.ITEM_FISH_CARP), 2)
+	var carp: ItemInstance = _first_where(seller.player.bag.enumerate(),
+		func(i): return (i as ItemInstance).def_id == Naming.ITEM_FISH_CARP)
+	_check("钓上来的鱼进得了包", carp != null)
+	if carp == null:
+		return
+	var gold := seller.player.gold
+	var unit := Trade.sell_price(carp)
+	_check("渔夫按对折收鱼", unit > 0 and seller.sell_from_bag(carp.uid)
+		and seller.bag.count_of(Naming.ITEM_FISH_CARP) == 0
+		and seller.player.gold == gold + unit * 2, "每件 %d" % unit)
+
+	var quest := QuestDatabase.get_def(Naming.QUEST_FISH)
+	_check("订单收的就是塘里那尾鲤鱼", quest != null and quest.kind == Enums.QuestKind.COLLECT
+		and quest.target == Naming.ITEM_FISH_CARP and quest.count == 5)
+	_check("派活交差都是渔夫", quest.npc_id == Naming.NPC_FISHERMAN
+		and quest.turn_in_npc_id == Naming.NPC_FISHERMAN)
+	var angler := GameSession.new_campaign(507)
+	_check("渔夫那儿接到订单", angler.accept_quest(Naming.QUEST_FISH)
+		and angler.progress_of(quest) == 0)
+	for _i in 5:
+		angler.player.bag.add(ItemDatabase.get_def(Naming.ITEM_FISH_CARP), 1)
+	_check("钓满五条就算办完", angler.is_complete(quest) and angler.progress_of(quest) == 5)
+	_check("交付只收走五条", angler.turn_in_quest(Naming.QUEST_FISH)
+		and angler.bag.count_of(Naming.ITEM_FISH_CARP) == 0)
+
+
+## 从出生点八向漫水，数还有多少可走格到不了。
+static func _stranded(map: GameMap) -> int:
+	var seen := {}
+	var queue: Array = [map.spawn]
+	seen[map.spawn] = true
+	var head := 0
+	while head < queue.size():
+		var here: Vector2i = queue[head]
+		head += 1
+		for d in 8:
+			var onward := Grid.offset(here, d)
+			if seen.has(onward) or not map.is_walkable(onward):
+				continue
+			seen[onward] = true
+			queue.append(onward)
+	var stranded := 0
+	for entry in map.all_positions():
+		var pos: Vector2i = entry
+		if map.is_walkable(pos) and not seen.has(pos):
+			stranded += 1
+	return stranded
 
 
 func _has_png_signature(bytes: PackedByteArray) -> bool:
