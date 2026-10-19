@@ -15,9 +15,6 @@ const CAMERA_SMOOTH := 9.0
 ## 走路时上下起伏的像素数。站定时两头都是 0，所以停下不会留半格抖动。
 const STEP_BOB := 2.0
 
-## 玩家真帧的节奏：四帧一轮、两帧一步（一轮正好两条腿各迈一次），所以一格走两帧。
-const FRAMES_PER_CELL := 2.0
-
 ## 程序化步态的幅度：落脚压扁 5%、钟摆式前后倾 4°。给没有逐帧素材的怪用，
 ## 目的不是拟真，是去掉"贴着地面滑行"那种平移感。
 const GAIT_SQUASH := 0.05
@@ -57,20 +54,30 @@ var _flashes: Array = []
 var _target := NO_TARGET
 var _clock := 0.0
 var _quarry := {}
-## 玩家的走路状态：朝向与帧号。用累加"走过多少格"来定帧，速度变了节奏不会散。
-var _player_face := ArtGen.FACE_FRONT
-var _player_frame := 0
-var _stride := 0.0
+## 玩家本体：八向 × 六态的 CharacterBody2D。它只定"这一刻该画哪张、朝哪儿"，
+## 位置仍由格子仿真说了算，所以画面照旧在画家桶里 blit，不独立成层。
+var _player_node: PlayerCharacter
 var _last_render := Vector2.ZERO
+
+
+func _ready() -> void:
+	var packed: PackedScene = load("res://entity/player/player.tscn")
+	_player_node = packed.instantiate() as PlayerCharacter
+	_player_node.name = "Player"
+	_player_node.externally_driven = true
+	# 精灵自己不画：WorldView 在深度桶里替它画，遮挡顺序才不用整套重做。
+	(_player_node.get_node("Sprite") as AnimatedSprite2D).visible = false
+	add_child(_player_node)
 
 
 func bind(session: GameSession) -> void:
 	_session = session
 	_center_camera(true)
 	_last_render = session.player_render_cell()
-	_player_face = ArtGen.FACE_FRONT
-	_player_frame = 0
-	_stride = 0.0
+	if _player_node != null:
+		_player_node.revive()
+		_player_node.facing = Enums.Direction.DOWN
+		_player_node.drive(Vector2.ZERO)
 	# 飘字是这个世界视图自己的事：直接订阅事件总线，不用场景根居中转发。
 	if not Event.raised.is_connected(_on_event):
 		Event.raised.connect(_on_event)
@@ -104,6 +111,27 @@ func _on_event(event: GameEvent) -> void:
 		color = Color(1.0, 0.82, 0.25)
 	if text != "":
 		add_floater(event.at, text, color)
+	_drive_action(event)
+
+
+## 出手/放招/挨打/被撂倒这几个动作状态由事件驱动——格子那边早就把它们 raise 出来了，
+## 这里只是把已有的事件流接到角色的状态机上，不新增任何判定或数值。
+## ATTACK 的 at 是被打的那一格：等于玩家脚下就是挨了，否则是玩家打出去。
+func _drive_action(event: GameEvent) -> void:
+	if _player_node == null:
+		return
+	var mine := event.at == _session.player.position
+	if event.type == Enums.GameEventType.ATTACK:
+		if mine:
+			_player_node.take_hit()
+		else:
+			_player_node.attack()
+	elif event.type == Enums.GameEventType.SKILL:
+		_player_node.cast_skill()
+	elif event.type == Enums.GameEventType.DEATH and mine:
+		_player_node.die()
+	elif event.type == Enums.GameEventType.RESPAWN:
+		_player_node.revive()
 
 
 ## UI 点到的格子画个圈，让"我点了哪儿"看得见。
@@ -136,29 +164,19 @@ static func _face_of(step: Vector2) -> int:
 	return ArtGen.FACE_FRONT if down >= 0.0 else ArtGen.FACE_BACK
 
 
-## 玩家的帧：累加"这一帧实际前进了多少格"来定帧号，而不是数秒。
-## 于是按键走、点击寻路、被击退，节奏都自动跟得上，不会出现脚比人快的滑步。
+## 玩家的朝向与走/站交给 PlayerCharacter 节点定：那边是八向真帧加状态机，帧号由动画自己走。
+## 喂过去的是"这一帧在屏幕上挪了多少"——格子走一格换算到屏幕是横 (dx-dy)、竖 (dx+dy)。
+## 用逐帧位移而不是"离脚下那格多远"来定朝向，所以落步那一帧不会闪回正面。
 func _update_player_walk() -> void:
 	var at := _session.player_render_cell()
-	var moved := absf(at.x - _last_render.x) + absf(at.y - _last_render.y)
+	var step := at - _last_render
 	_last_render = at
-	if moved <= 0.0001:
+	if _player_node == null:
 		return
-	# 换图落点会瞬移，那一帧的"位移"是一大步，吃掉它，别把帧号甩到随机位置。
-	_stride += minf(moved, 2.0)
-	# 渲染位置是从"刚踩着的格子"往"下一步的格子"插出来的，所以 at - position 才是前进方向。
-	# 落步那一帧两者重合，方向为零，此时保留上一个朝向，否则每步收尾都会闪一下正面。
-	var player := _session.player
-	var step := Vector2(at.x - player.position.x, at.y - player.position.y)
-	if absf(step.x) + absf(step.y) > 0.0001:
-		_player_face = _face_of(step)
-	_player_frame = int(_stride * FRAMES_PER_CELL) % ArtGen.WALK_FRAMES
-
-
-## 站定的时候渲染位置就等于脚下那格，所以这一点是"有没有在走"的判据。
-func _is_walking() -> bool:
-	var at := _session.player_render_cell()
-	return absf(at.x - _session.player.position.x) + absf(at.y - _session.player.position.y) > 0.0001
+	# 换图落点是瞬移，那一帧能跳出去好几格，别拿它去定朝向。
+	if absf(step.x) + absf(step.y) > 2.0:
+		return
+	_player_node.drive(Vector2(step.x - step.y, step.x + step.y))
 
 
 ## 怪的步态：没有逐帧素材，就用钟摆式的前后倾 + 落脚压扁 + 朝左时镜像。
@@ -541,6 +559,9 @@ func _draw_monster(foot: Vector2, at: Vector2, monster: MonsterUnit) -> void:
 		_label("任务", top + Vector2(0, -20), 13, Color(1.0, 0.82, 0.25))
 
 
+## 玩家本体改由 PlayerCharacter 节点定帧：八向 × 六态的真动画与状态机在那边，
+## 这里只把"当前该画哪一张"blit 进画家桶，遮挡顺序因此完全不用重做。
+## 护甲/武器那两层暂时不叠：这套素材是裸身体，ArtGen 的派生层是按旧走路帧的轮廓算的。
 func _draw_player(foot: Vector2, cell: Vector2i) -> void:
 	var player := _session.player
 	var points := _to_screen(Iso.corners(Vector2(cell.x, cell.y)))
@@ -549,25 +570,42 @@ func _draw_player(foot: Vector2, cell: Vector2i) -> void:
 		draw_bar(Rect2(foot + Vector2(-16, -20), Vector2(32, 4)), player.hp_percent,
 			Palette.HEALTH, Palette.HEALTH_LOW)
 		return
-	# 站着不动时也画走路帧的第 0 帧：素材表里没单独登记"立正"，
-	# 用起步那一帧当待机，比让身体僵在跨步中间看着自然。
-	var frame := _player_frame if _is_walking() else 0
-	var art_name := ArtGen.walk_art(_player_face, frame)
-	var flip := ArtGen.walk_flips(_player_face)
-	var height := _billboard(art_name, foot, ArtGen.player(), flip)
-	# 换装层压在本体上：同一张走路帧的画布、同一个脚底点、同一条镜像规则。
-	for look in _session.look_layers():
-		var kind := String(look["layer"])
-		var texture: Texture2D = null
-		if kind == "armor":
-			texture = ArtGen.armor_layer(art_name, int(look["shape"]))
-		elif kind == "weapon":
-			texture = ArtGen.weapon_layer(art_name, int(look["shape"]), _player_face)
-		_draw_layer(texture, foot, flip)
-	draw_bar(Rect2(foot + Vector2(-16, -height - 8), Vector2(32, 4)), player.hp_percent,
-		Palette.HEALTH, Palette.HEALTH_LOW)
+	var texture := _player_frame_texture()
+	if texture == null:
+		# 节点没建起来（素材没导入、裸跑工程）：退回原来那套程序化立绘，画面不该是空的。
+		_billboard(ArtGen.PLAYER_ART, foot, ArtGen.player())
+	else:
+		_draw_character(texture, foot)
+	draw_bar(Rect2(foot + Vector2(-16, -PlayerCharacter.body_height() - 8), Vector2(32, 4)),
+		player.hp_percent, Palette.HEALTH, Palette.HEALTH_LOW)
 	if not _session.effects.is_empty():
 		_stroke(points, Color(1.0, 0.85, 0.4, 0.85), 2.5)
+
+
+## 节点此刻该画的那一张：动画名就是"<状态><朝向>"，帧号由 AnimatedSprite2D 自己推进。
+func _player_frame_texture() -> Texture2D:
+	if _player_node == null:
+		return null
+	var sprite := _player_node.get_node_or_null("Sprite") as AnimatedSprite2D
+	if sprite == null or sprite.sprite_frames == null:
+		return null
+	var key := String(sprite.animation)
+	var count := sprite.sprite_frames.get_frame_count(key)
+	if count <= 0:
+		return null
+	return sprite.sprite_frames.get_frame_texture(key, clampi(sprite.frame, 0, count - 1))
+
+
+## 按脚底锚点画：脚底那个纹素正好落在 foot 上，画布四周那圈空白不占位置也不该占。
+func _draw_character(texture: Texture2D, foot: Vector2) -> void:
+	var s := PlayerCharacter.DISPLAY_SCALE
+	var size := Vector2(texture.get_width(), texture.get_height()) * s
+	var top_left := foot - PlayerCharacter.FOOT * s
+	_contact_shadow(foot, PlayerCharacter.SHADOW_WIDTH)
+	var quad := PackedVector2Array([top_left, top_left + Vector2(size.x, 0.0),
+		top_left + size, top_left + Vector2(0.0, size.y)])
+	draw_colored_polygon(quad, ArtGen.figure_tint(_session.map.theme),
+		PackedVector2Array(FACE_UV), texture)
 
 
 func draw_bar(rect: Rect2, ratio: float, full: Color, empty: Color) -> void:
