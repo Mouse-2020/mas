@@ -17,6 +17,9 @@ extends Resource
 @export var heal_hp := 0
 @export var heal_mp := 0
 @export var description := ""
+## 外观号：同一号共用一套贴图，传奇2 的 ItemInfo.Looks 就是这个意思。
+## 43 件装备归到十几个号就画完了，加装备是填编号不是加图。0 表示不参与换装外观。
+@export var shape := 0
 ## 武谱指向的那招；非武谱留空。
 @export var learns_skill := ""
 

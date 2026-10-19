@@ -447,6 +447,20 @@ func _billboard(art_name: String, foot: Vector2, fallback: Texture2D,
 	return drawn.y
 
 
+## 换装层：与本体同一脚底锚点、同一镜像规则；影子只由本体画一次，叠层不重复压暗。
+func _draw_layer(texture: Texture2D, foot: Vector2, flip: bool) -> void:
+	if texture == null:
+		return
+	var size := Vector2(texture.get_width(), texture.get_height())
+	draw_set_transform(foot, 0.0, Vector2.ONE)
+	var quad := PackedVector2Array([Vector2(-size.x * 0.5, 3.0 - size.y),
+		Vector2(size.x * 0.5, 3.0 - size.y), Vector2(size.x * 0.5, 3.0),
+		Vector2(-size.x * 0.5, 3.0)])
+	draw_colored_polygon(quad, ArtGen.figure_tint(_session.map.theme),
+		PackedVector2Array(MIRRORED_UV if flip else FACE_UV), texture)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
 ## 接触阴影：椭圆一张压扁贴地。人一走动就有影子跟着，是"站在地上"最关键的一条线索。
 func _contact_shadow(foot: Vector2, width: float) -> void:
 	var texture := ArtGen.shadow()
@@ -538,8 +552,18 @@ func _draw_player(foot: Vector2, cell: Vector2i) -> void:
 	# 站着不动时也画走路帧的第 0 帧：素材表里没单独登记"立正"，
 	# 用起步那一帧当待机，比让身体僵在跨步中间看着自然。
 	var frame := _player_frame if _is_walking() else 0
-	var height := _billboard(ArtGen.walk_art(_player_face, frame), foot,
-		ArtGen.player(), ArtGen.walk_flips(_player_face))
+	var art_name := ArtGen.walk_art(_player_face, frame)
+	var flip := ArtGen.walk_flips(_player_face)
+	var height := _billboard(art_name, foot, ArtGen.player(), flip)
+	# 换装层压在本体上：同一张走路帧的画布、同一个脚底点、同一条镜像规则。
+	for look in _session.look_layers():
+		var kind := String(look["layer"])
+		var texture: Texture2D = null
+		if kind == "armor":
+			texture = ArtGen.armor_layer(art_name, int(look["shape"]))
+		elif kind == "weapon":
+			texture = ArtGen.weapon_layer(art_name, int(look["shape"]), _player_face)
+		_draw_layer(texture, foot, flip)
 	draw_bar(Rect2(foot + Vector2(-16, -height - 8), Vector2(32, 4)), player.hp_percent,
 		Palette.HEALTH, Palette.HEALTH_LOW)
 	if not _session.effects.is_empty():

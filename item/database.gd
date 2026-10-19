@@ -63,5 +63,6 @@ static func _make(row: Dictionary) -> ItemDef:
 	def.heal_mp = CsvTable.integer(row, "heal_mp", 0)
 	def.description = CsvTable.text(row, "description")
 	def.learns_skill = CsvTable.text(row, "learns_skill")
+	def.shape = CsvTable.integer(row, "shape", 0)
 	def.bonus = CsvTable.stats(row, "bonus")
 	return def

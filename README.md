@@ -5,7 +5,7 @@
 UI 图标与音效仍由代码生成。
 
 目录按 [doc/project.md](doc/project.md) 的领域划分；架构、数据流与"怎么加内容"见
-[doc/design.md](doc/design.md)。同一粒种子永远得到同一张世界与同一场战斗，回归基线是 `tool/selftest.gd` 的 465 项断言。
+[doc/design.md](doc/design.md)。同一粒种子永远得到同一张世界与同一场战斗，回归基线是 `tool/selftest.gd` 的 473 项断言。
 
 ## 工程结构
 
@@ -20,7 +20,7 @@ combat/     damage/ + skill/ + status/                                命中伤�
 item/       base.gd + instance.gd + items.csv + inventory/ + loot/
 map/        map.gd generator.gd pathfinding.gd iso.gd view.gd renderer.gd + maps.csv + world/ transition/
 quest/      base.gd state.gd database.gd + quests.csv
-system/     session.gd（一局运行时）+ fishing.gd + save/ economy/ dialogue/ progression(待拆)
+system/     session.gd（一局运行时）+ save/ economy/ dialogue/ fishing/ progression(待拆)
 ui/         hud/ inventory/ shop/ skill/ dialogue/ menu/
 shared/     enums naming rng grid unit event palette art_gen + art/（烘好的贴图） resource/ audio/ font/
 tool/       selftest.gd sim.gd render.gd bake_art.gd preview.gd       开发期工具，游戏不加载
@@ -49,6 +49,10 @@ CSV 里的写法：枚举列（`type`/`kind`/`slot`/`theme`）写名字或序号
 用 `k=v;k=v`；复合列用 `|` 分组、`:` 分字段——掉落 `物品名:概率:最少:最多`、连线
 `目标图:方位:门牌`、站位 `NPC名:dx:dy`、任务奖励 `物品:份数`；`monsters` 列用 `;` 分隔；
 `#` 开头的行是注释。**文字里别用英文逗号**，中文标点是安全的。
+
+装备表多一列 `shape`＝**外观号**（传奇2 的 `ItemInfo.Looks` 那个意思）：同一号共用一套造型，
+43 件装备归到十几个号就画得完，加装备是填编号不是加图。画面上玩家按 本体 → 护甲 → 武器
+叠三层，层与层同尺寸、同脚底锚点（`item/items.csv` 的 shape 为 0 表示只有数值、不参与外观）。
 
 各领域 `database.gd` 首次访问时做跨表校验（id 重复、掉落指向不存在的物品、武谱指向不存在的招式、
 地图连线不回程、任务派活人不在表里，都会 `push_error` 报出来）。加一条新内容＝表里加一行。
@@ -84,7 +88,7 @@ godot             --path . --script res://tool/preview.gd -- --seed 808 --map fo
 
 - `bake_art` 把 `.artifacts/raw/` 里的原图烘成 `shared/art/` 的运行时贴图。**烘完必须再跑一遍
   `--import`**：引擎加载的是导入缓存，不重导的话 PNG 换了、画面上却还是旧贴图。
-- `selftest` 54 段 / 465 项断言，退出码 = 失败项数，CI 里 `$?` 直接可用。
+- `selftest` 55 段 / 473 项断言，退出码 = 失败项数，CI 里 `$?` 直接可用。
 - `sim` 用一个会找怪、喝药、穿装备、读书、接任务、走图、进店的机器人压逻辑路径，
   输出等级/击杀/死亡/掉落统计，并把世界渲染成 PNG。
 - `render` 九张图各出一张全图 + 玩家视野特写（俯视示意图，看刷怪与通路用，不是等距画面）。
@@ -160,7 +164,7 @@ godot --path . -- --shot 260 --seed 808 --png .artifacts/shot.png
 | 多地图与传送 | `map/generator.gd` + `map/map.gd`（门格/落点）+ `system/session.gd` 每图运行时 | 踩门或传送 NPC 换图、小地图换图重烘、门格高亮与"回武馆"标签 |
 | 招式与内力 | `combat/skill/skills.csv` 十招（入门剑法/调息术/崩拳/回风扫叶/穿云掌/追风腿/金钟罩/铁布衫/燎原剑/狮子吼）+ 冷却、内力耗、武谱 | 技能栏十格、冷却暗罩与倒计时、落点方框闪光 |
 | NPC 与任务 | `entity/npc/npcs.csv` 对话选项由 `talk_to` 算 + `quest/quests.csv` 十一条 | 对话面板按钮、左侧任务追踪、J 任务簿、任务怪头顶标记 |
-| 钓鱼 | [system/fishing.gd](system/fishing.gd)（哪儿能下竿、咬钩节奏、按图换鱼签）+ `system/session.gd` 的站桩状态机 | 站在水边按 G 抛竿，0.9~2.6 秒后浮漂下沉，画面正中喊"按 G 收竿"，只有 0.6 秒可收 |
+| 钓鱼 | [system/fishing/fishing.gd](system/fishing/fishing.gd)（哪儿能下竿、咬钩节奏、按图换鱼签）+ `system/session.gd` 的站桩状态机 | 站在水边按 G 抛竿，0.9~2.6 秒后浮漂下沉，画面正中喊"按 G 收竿"，只有 0.6 秒可收 |
 | 商店 | `system/economy/trade.gd`（买价照表、卖价对折、耐久折算、修理按缺失条数） | 买卖两栏面板、站在老板跟前才解锁、修理按钮实时报价 |
 | 音效 | `shared/audio/sfx_bank.gd`（程序化合成 PCM + 事件到音效映射表） | `autoload/audio.gd` 转 `AudioStreamWAV`、8 路发声通道、循环 BGM、M 静音 |
 
@@ -187,7 +191,7 @@ JSON 键名 snake_case，格式版本 `FORMAT_VERSION = 3`；版本不符的存�
 - `shared/rng.gd` 是 uint32 xorshift：同一粒种子永远得到同一张地图、同一批怪、同一场战斗。
   改任何一处掩码都会改变结果，所以它属于回归基线的一部分，不是可以顺手"优化"的代码。
 - 地形不进存档：每张图按 `(地图定义, 种子)` 重生成，存档只记动态内容，所以不会因地图漂移而坏。
-- **回归基线是 `tool/selftest.gd` 的 465 项断言，不是 `sim` 的统计数字。**
+- **回归基线是 `tool/selftest.gd` 的 473 项断言，不是 `sim` 的统计数字。**
   时间是 `double` 累加、A* 同分节点的出队次序按 `(f 值, 入队序号)` 固定，
   机器人每 30 秒的位置就会漂；`sim` 只做**量级对照**（跑得动、事件类型齐全、存读档对得上），
   别拿它的击杀数当基线——换一粒种子机器人可能多死十几次。

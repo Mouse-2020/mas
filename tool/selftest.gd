@@ -1,7 +1,7 @@
 extends SceneTree
 
 # 武林风 · 无头自检台。
-# 54 段、465 项断言：地图生成、寻路、移动、战斗、掉落、技能、对话、任务、商店、钓鱼、音效、存读档都覆盖。
+# 55 段、473 项断言：地图生成、寻路、移动、战斗、掉落、技能、对话、任务、商店、钓鱼、音效、存读档都覆盖。
 # 显示文案一律取 Naming 常量。
 # 退出码 = 失败项数，所以 CI 里 `$?` 直接可用。
 
@@ -46,6 +46,7 @@ func _initialize() -> void:
 	_loot_pickup_and_expiry()
 	_player_takes_damage_and_dies()
 	_equipment_changes_stats()
+	_equipment_looks_layer_up()
 	_equipment_level_requirement()
 	_both_ring_slots_usable()
 	_full_bag_rejects_swap()
@@ -1184,6 +1185,54 @@ func _loot_pickup_and_expiry() -> void:
 	session.tick(0.2)
 	_check("超时掉落会消失", session.loot.size() < count, "%d → %d" % [count, session.loot.size()])
 
+
+
+## 换装分层的三条硬约束：外观号得填、层必须与本体同尺寸同锚点、穿什么决定画几层。
+func _equipment_looks_layer_up() -> void:
+	var naked: Array = []
+	for entry in ItemDatabase.all_defs():
+		var def := entry as ItemDef
+		if def.is_equipment and def.shape <= 0:
+			naked.append(def.id)
+	_check("每件可穿戴装备都有外观号", naked.is_empty(), _join(naked, ","))
+
+	var session := GameSession.new_campaign(4404)
+	# 新手身上本来就带着木剑与布衣，所以层数不能写死，要按"身上几件带外观的装备"算。
+	var wearing := 0
+	for slot in [Enums.EquipSlot.WEAPON, Enums.EquipSlot.ARMOR]:
+		var born_wearing := session.gear.at(int(slot))
+		if born_wearing != null and born_wearing.def.shape > 0:
+			wearing += 1
+	_check("画几层由身上几件带外观的装备决定", session.look_layers().size() == 1 + wearing,
+		"身上 %d 件，层数 %d" % [wearing, session.look_layers().size()])
+	session.gear.force_wear(Enums.EquipSlot.RING_LEFT,
+		ItemInstance.from_def(ItemDatabase.get_def(Naming.ITEM_POWER_RING), 1, "look-ring"))
+	_check("戒指不加层", session.look_layers().size() == 1 + wearing,
+		"%d 层" % session.look_layers().size())
+	session.gear.force_wear(Enums.EquipSlot.WEAPON,
+		ItemInstance.from_def(ItemDatabase.get_def(Naming.ITEM_BRONZE_SWORD), 1, "look-sword"))
+	session.gear.force_wear(Enums.EquipSlot.ARMOR,
+		ItemInstance.from_def(ItemDatabase.get_def(Naming.ITEM_LIGHT_ARMOR), 1, "look-coat"))
+	var dressed := session.look_layers()
+	var kinds := _map_ids(dressed, func(layer): return (layer as Dictionary)["layer"])
+	_check("穿上甲与剑就叠三层", dressed.size() == 3 and kinds.has("armor") and kinds.has("weapon"),
+		_join(kinds, "→"))
+
+	# 分层最容易翻车的地方：层和本体差几像素，人一动武器就脱手。
+	var art_name := ArtGen.walk_art(ArtGen.FACE_FRONT, 1)
+	var body := ArtGen.billboard(art_name)
+	_check("本体走路帧取到了", body != null, art_name)
+	if body == null:
+		return
+	_check("护甲层与本体同尺寸", _same_size(ArtGen.armor_layer(art_name, 2), body), art_name)
+	_check("武器层与本体同尺寸", _same_size(ArtGen.weapon_layer(art_name, 1, ArtGen.FACE_RIGHT), body), art_name)
+	_check("四种朝向的层都出得来", ArtGen.armor_layer(ArtGen.walk_art(ArtGen.FACE_BACK, 0), 1) != null
+		and ArtGen.weapon_layer(ArtGen.walk_art(ArtGen.FACE_LEFT, 2), 3, ArtGen.FACE_LEFT) != null)
+
+
+static func _same_size(texture: Texture2D, body: Texture2D) -> bool:
+	return texture != null and texture.get_width() == body.get_width() \
+		and texture.get_height() == body.get_height()
 
 func _player_takes_damage_and_dies() -> void:
 	var session := GameSession.new_campaign(1234)

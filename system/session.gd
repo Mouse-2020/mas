@@ -1438,6 +1438,18 @@ static func _render_cell(unit: Unit, path: Array, progress: float) -> Vector2:
 	return Vector2(unit.position).lerp(Vector2(next), minf(progress, 1.0))
 
 
+## 玩家现在该画几层：本体 → 护甲 → 武器，画的就是这个顺序。
+## 外观号（ItemDef.shape）为 0 的件不参与——那是只有数值的件，没有对应造型。
+func look_layers() -> Array:
+	var layers: Array = [{ "layer": "body", "shape": 0 }]
+	for entry in [{ "slot": Enums.EquipSlot.ARMOR, "layer": "armor" },
+			{ "slot": Enums.EquipSlot.WEAPON, "layer": "weapon" }]:
+		var worn := gear.at(int(entry["slot"]))
+		if worn != null and worn.def.shape > 0:
+			layers.append({ "layer": String(entry["layer"]), "shape": worn.def.shape })
+	return layers
+
+
 func _update_loot(delta: float) -> void:
 	for i in range(_current.loot.size() - 1, -1, -1):
 		var stack := _current.loot[i] as LootItem

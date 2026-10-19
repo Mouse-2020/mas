@@ -169,6 +169,104 @@ static func walk_flips(face: int) -> bool:
 	return face == FACE_LEFT
 
 
+# ── 换装层（占位） ──────────────────────────────────────────────────
+
+# 真素材还没进烘焙台，护甲层与武器层先从"本体轮廓"派生：画布尺寸与脚底锚点天生
+# 就跟本体一致，分层最容易翻车的"差几像素就脱手"这样从构造上就不会发生。
+# 真图到位后按 walk_art 那套命名走 billboard() 取用，这一整节删掉即可。
+
+const ARMOR_TONES := [
+	Color(0.44, 0.38, 0.31),  # 外观 1：布麻
+	Color(0.56, 0.47, 0.30),  # 外观 2：皮藤
+	Color(0.45, 0.50, 0.58),  # 外观 3：铁
+	Color(0.32, 0.44, 0.41),  # 外观 4：玄武
+]
+const WEAPON_TONES := [
+	Color(0.74, 0.73, 0.70),  # 外观 1：剑，细长直
+	Color(0.82, 0.63, 0.36),  # 外观 2：刀，宽一档
+	Color(0.58, 0.42, 0.26),  # 外观 3：杖，长过身位一半
+]
+
+## 手在哪：相对本体图面的比例（x 向右、y 向下）。左侧借镜像，所以只登记三个朝向。
+const WEAPON_HAND := {
+	FACE_FRONT: Vector2(0.30, 0.52),
+	FACE_BACK: Vector2(0.70, 0.46),
+	FACE_RIGHT: Vector2(0.60, 0.50),
+}
+## 刃往哪边伸：0 是正右、越大越往上（dir = (cos, -sin)），所以 2.24 是朝左上方挑起来。
+const WEAPON_TILT := {FACE_FRONT: 2.24, FACE_BACK: 1.02, FACE_RIGHT: 0.92}
+
+static var _layers := {}
+
+
+## 护甲层：躯干那一段换配色，轮廓原样保留。
+static func armor_layer(art_name: String, shape: int) -> Texture2D:
+	return _layer("armor", art_name, shape, 0)
+
+
+## 武器层：在手位画一条占位刃。
+static func weapon_layer(art_name: String, shape: int, face: int) -> Texture2D:
+	return _layer("weapon", art_name, shape, FACE_RIGHT if face == FACE_LEFT else face)
+
+
+static func _layer(kind: String, art_name: String, shape: int, face: int) -> Texture2D:
+	var key := "%s:%s:%d:%d" % [kind, art_name, shape, face]
+	if _layers.has(key):
+		return _layers[key]
+	var body := billboard(art_name)
+	var out: Texture2D = null
+	if body != null:
+		var src: Image = body.get_image()
+		if src != null:
+			out = ImageTexture.create_from_image(_draw_layer(kind, src, shape, face))
+	_layers[key] = out
+	return out
+
+
+static func _draw_layer(kind: String, src: Image, shape: int, face: int) -> Image:
+	var tone: Color = ARMOR_TONES[posmod(shape - 1, ARMOR_TONES.size())]
+	if kind == "armor":
+		var img: Image = src.duplicate()
+		# 躯干在图面 34%~72% 那一段。保着明暗只换色相，直接铺纯色会像贴了块布。
+		var from := int(img.get_height() * 0.34)
+		var to := int(img.get_height() * 0.72)
+		for y in range(from, to):
+			for x in img.get_width():
+				var c: Color = img.get_pixel(x, y)
+				if c.a < 0.25:
+					continue
+				var light: float = (c.r + c.g + c.b) / 3.0
+				img.set_pixel(x, y, Color(tone.r * (0.55 + light), tone.g * (0.55 + light),
+					tone.b * (0.55 + light), c.a))
+		return img
+
+	var canvas: Image = Image.create(src.get_width(), src.get_height(), false, Image.FORMAT_RGBA8)
+	var blade_tone: Color = WEAPON_TONES[posmod(shape - 1, WEAPON_TONES.size())]
+	var hand: Vector2 = WEAPON_HAND.get(face, WEAPON_HAND[FACE_FRONT])
+	var tilt: float = WEAPON_TILT.get(face, WEAPON_TILT[FACE_FRONT])
+	var staff := shape >= 3
+	var at := Vector2(canvas.get_width() * hand.x, canvas.get_height() * hand.y)
+	var dir := Vector2(cos(tilt), -sin(tilt))
+	_blade(canvas, at - dir * 4.0, at + dir * canvas.get_height() * (0.56 if staff else 0.36),
+		1.8 if staff else (2.6 if shape == 2 else 1.6), blade_tone)
+	return canvas
+
+
+## 一段有粗细的亮条：占位刃只要看出"握在哪只手、往哪边伸"。
+## 按"到线段的距离"逐像素判定，所以再陡也不会画成断开的点阵。
+static func _blade(canvas: Image, from: Vector2, to: Vector2, thick: float, tone: Color) -> void:
+	var span := to - from
+	var squared := maxf(span.length_squared(), 1.0)
+	for y in canvas.get_height():
+		for x in canvas.get_width():
+			var p := Vector2(x, y)
+			var t := clampf((p - from).dot(span) / squared, 0.0, 1.0)
+			if p.distance_to(from + span * t) > thick:
+				continue
+			var fade := 1.0 - 0.4 * t
+			canvas.set_pixel(x, y, Color(tone.r * fade, tone.g * fade, tone.b * fade, 1.0))
+
+
 static func npc_art(palette: String) -> String:
 	return NPC_ART.get(palette, NPC_ART["guide"]) as String
 

@@ -70,7 +70,7 @@
 │   └── side/                        # 支线任务
 │
 ├── system/                          # 其他系统
-│   ├── fishing.gd                   # 钓鱼规则：钓点、咬钩节奏、按图换鱼签
+│   ├── fishing/                     # 钓鱼：钓点、咬钩节奏、按图换鱼签（规则在 fishing.gd）
 │   ├── dialogue/                    # 对话逻辑
 │   ├── economy/                     # 经济
 │   ├── progression/                 # 成长

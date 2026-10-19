@@ -1,51 +1,52 @@
 # 物品表：一行一件，字段名就是列名。
 # 类型/部位可写枚举名（大小写随意）或序号；bonus 用 k=v;k=v 写，分号分隔。
 # 文字里不要用英文逗号，中文标点是安全的。
-id,title,type,slot,weight,price,max_stack,max_durability,required_level,heal_hp,heal_mp,bonus,description,learns_skill
-金币,,GOLD,ARMOR,0,1,100000,0,1,0,0,,,
-活血散,,CONSUMABLE,,2,30,50,0,1,60,0,,恢复 60 点生命,
-大活血丹,,CONSUMABLE,,4,120,50,0,1,180,0,,恢复 180 点生命,
-内力丹,,CONSUMABLE,,2,40,50,0,1,0,50,,恢复 50 点内力,
-两仪丹,,CONSUMABLE,,3,300,20,0,1,120,80,,同时恢复生命与内力,
-木剑,,WEAPON,WEAPON,8,100,1,120,1,0,0,dc_min=2;dc_max=4,,
-青铜剑,,WEAPON,WEAPON,8,420,1,180,3,0,0,dc_min=4;dc_max=9,,
-赤炎刀,,WEAPON,WEAPON,8,1600,1,300,8,0,0,dc_min=8;dc_max=16;hit=3,,
-回风刀,,WEAPON,WEAPON,8,4200,1,420,14,0,0,dc_min=12;dc_max=22;max_hp=20;attack_speed=2,,
-紫竹杖,,WEAPON,WEAPON,8,12000,1,520,22,0,0,dc_min=18;dc_max=34;mc_min=4;mc_max=8;max_hp=40,,
-布衣,,ARMOR,ARMOR,12,90,1,100,1,0,0,ac_min=2;ac_max=5,,
-软甲,,ARMOR,ARMOR,12,900,1,220,5,0,0,ac_min=5;ac_max=12,,
-铁重甲,,ARMOR,ARMOR,12,3200,1,360,12,0,0,ac_min=9;ac_max=22;move_speed=-1,,
-玄武甲,,ARMOR,ARMOR,12,11000,1,480,20,0,0,ac_min=14;ac_max=32;max_hp=60;dodge=2,,
-铁头盔,,HELMET,HELMET,5,400,1,120,4,0,0,ac_min=2;ac_max=5,,
-虎头盔,,HELMET,HELMET,5,4600,1,260,16,0,0,ac_min=6;ac_max=12;max_hp=30,,
-护心镜,,NECKLACE,NECKLACE,3,500,1,140,6,0,0,ac_min=1;ac_max=3;mc_min=1;mc_max=3;max_mp=20,,
-铁扳指,,RING,RING_LEFT,3,1500,1,150,7,0,0,ac_min=2;ac_max=3;dc_min=2;dc_max=3,,
-云纹扳指,,RING,RING_LEFT,3,1800,1,170,9,0,0,ac_min=1;ac_max=3;dodge=3;hit=2,,
-快靴,,BOOTS,BOOTS,4,350,1,130,3,0,0,ac_min=1;ac_max=4;move_speed=2,,
-皮腰带,,BELT,BELT,3,250,1,90,2,0,0,ac_min=1;ac_max=2;max_hp=10,,
-铁矿石,,MATERIAL,,5,25,200,0,1,0,0,,锻造材料，可以卖给商人,
-兽皮,,MATERIAL,,3,18,200,0,1,0,0,,缝制护甲的基础材料,
-蛇胆,,MATERIAL,,1,60,100,0,1,0,0,,稀有的炼药材料,
-狼牙,,MATERIAL,,2,45,200,0,1,0,0,,竹林狼的牙，成串做成护腕,
-洞蝠翼,,MATERIAL,,2,55,200,0,1,0,0,,密洞里的皮膜，药庐收,
-武谱·回风扫叶,,BOOK,,3,2600,1,0,1,0,0,,学会横扫招式回风扫叶,moon
-武谱·穿云掌,,BOOK,,3,3200,1,0,1,0,0,,学会远程单体掌力穿云掌,bolt
-武谱·金钟罩,,BOOK,,3,3800,1,0,1,0,0,,学会十四秒防御护体金钟罩,shield
-武谱·燎原剑,,BOOK,,3,9000,1,0,1,0,0,,学会重击剑法燎原剑,fire
-金创药,,CONSUMABLE,,3,200,40,0,1,300,0,,恢复 300 点生命,
-大内力丹,,CONSUMABLE,,2,160,40,0,1,0,120,,恢复 120 点内力,
-千年参,,CONSUMABLE,,1,900,10,0,1,250,60,,补气老参，重伤时嚼一片,
-雁翎刀,,WEAPON,WEAPON,8,2600,1,360,10,0,0,dc_min=10;dc_max=18;hit=2,,
-藤甲,,ARMOR,ARMOR,12,1500,1,280,8,0,0,ac_min=7;ac_max=16;max_hp=20,,
-精铁盔,,HELMET,HELMET,5,1200,1,180,9,0,0,ac_min=4;ac_max=9;max_hp=10,,
-铜扳指,,RING,RING_RIGHT,3,1100,1,140,8,0,0,ac_min=1;ac_max=2;dc_min=1;dc_max=2,,
-步云履,,BOOTS,BOOTS,4,2400,1,200,12,0,0,ac_min=2;ac_max=6;move_speed=3,,
-丝绦腰带,,BELT,BELT,3,1400,1,150,10,0,0,ac_min=2;ac_max=4;max_mp=15,,
-玄铁,,MATERIAL,,8,120,100,0,1,0,0,,深山里挖出的精铁，铁匠收,
-狐皮,,MATERIAL,,2,35,200,0,1,0,0,,野狐的皮，轻软又保暖,
-武谱·铁布衫,,BOOK,,3,4200,1,0,1,0,0,,学会十八秒护体硬功铁布衫,iron
-武谱·狮子吼,,BOOK,,3,7600,1,0,1,0,0,,学会震慑全场的吼功狮子吼,roar
-鲫鱼,,MATERIAL,,2,22,200,0,1,0,0,,塘里最常见的个头，刺多，渔夫也收,
-鲤鱼,,MATERIAL,,4,45,100,0,1,0,0,,水边肥物，药婆嫌腥，渔夫肯出钱,
-草鱼,,MATERIAL,,7,70,100,0,1,0,0,,啃草长大的大个子，一竿能压弯竹竿,
-黑鱼,,MATERIAL,,5,120,50,0,1,0,0,,阴潭里的黑货，洞窟水潭才上得来,
+# shape 是外观号：同好号共用一套造型（传奇2 的 ItemInfo.Looks），0 表示只有数值、不参与换装外观。
+id,title,type,slot,weight,price,max_stack,max_durability,required_level,heal_hp,heal_mp,bonus,description,learns_skill,shape
+金币,,GOLD,ARMOR,0,1,100000,0,1,0,0,,,,0
+活血散,,CONSUMABLE,,2,30,50,0,1,60,0,,恢复 60 点生命,,0
+大活血丹,,CONSUMABLE,,4,120,50,0,1,180,0,,恢复 180 点生命,,0
+内力丹,,CONSUMABLE,,2,40,50,0,1,0,50,,恢复 50 点内力,,0
+两仪丹,,CONSUMABLE,,3,300,20,0,1,120,80,,同时恢复生命与内力,,0
+木剑,,WEAPON,WEAPON,8,100,1,120,1,0,0,dc_min=2;dc_max=4,,,1
+青铜剑,,WEAPON,WEAPON,8,420,1,180,3,0,0,dc_min=4;dc_max=9,,,1
+赤炎刀,,WEAPON,WEAPON,8,1600,1,300,8,0,0,dc_min=8;dc_max=16;hit=3,,,2
+回风刀,,WEAPON,WEAPON,8,4200,1,420,14,0,0,dc_min=12;dc_max=22;max_hp=20;attack_speed=2,,,2
+紫竹杖,,WEAPON,WEAPON,8,12000,1,520,22,0,0,dc_min=18;dc_max=34;mc_min=4;mc_max=8;max_hp=40,,,3
+布衣,,ARMOR,ARMOR,12,90,1,100,1,0,0,ac_min=2;ac_max=5,,,1
+软甲,,ARMOR,ARMOR,12,900,1,220,5,0,0,ac_min=5;ac_max=12,,,1
+铁重甲,,ARMOR,ARMOR,12,3200,1,360,12,0,0,ac_min=9;ac_max=22;move_speed=-1,,,2
+玄武甲,,ARMOR,ARMOR,12,11000,1,480,20,0,0,ac_min=14;ac_max=32;max_hp=60;dodge=2,,,3
+铁头盔,,HELMET,HELMET,5,400,1,120,4,0,0,ac_min=2;ac_max=5,,,1
+虎头盔,,HELMET,HELMET,5,4600,1,260,16,0,0,ac_min=6;ac_max=12;max_hp=30,,,1
+护心镜,,NECKLACE,NECKLACE,3,500,1,140,6,0,0,ac_min=1;ac_max=3;mc_min=1;mc_max=3;max_mp=20,,,1
+铁扳指,,RING,RING_LEFT,3,1500,1,150,7,0,0,ac_min=2;ac_max=3;dc_min=2;dc_max=3,,,1
+云纹扳指,,RING,RING_LEFT,3,1800,1,170,9,0,0,ac_min=1;ac_max=3;dodge=3;hit=2,,,1
+快靴,,BOOTS,BOOTS,4,350,1,130,3,0,0,ac_min=1;ac_max=4;move_speed=2,,,1
+皮腰带,,BELT,BELT,3,250,1,90,2,0,0,ac_min=1;ac_max=2;max_hp=10,,,1
+铁矿石,,MATERIAL,,5,25,200,0,1,0,0,,锻造材料，可以卖给商人,,0
+兽皮,,MATERIAL,,3,18,200,0,1,0,0,,缝制护甲的基础材料,,0
+蛇胆,,MATERIAL,,1,60,100,0,1,0,0,,稀有的炼药材料,,0
+狼牙,,MATERIAL,,2,45,200,0,1,0,0,,竹林狼的牙，成串做成护腕,,0
+洞蝠翼,,MATERIAL,,2,55,200,0,1,0,0,,密洞里的皮膜，药庐收,,0
+武谱·回风扫叶,,BOOK,,3,2600,1,0,1,0,0,,学会横扫招式回风扫叶,moon,0
+武谱·穿云掌,,BOOK,,3,3200,1,0,1,0,0,,学会远程单体掌力穿云掌,bolt,0
+武谱·金钟罩,,BOOK,,3,3800,1,0,1,0,0,,学会十四秒防御护体金钟罩,shield,0
+武谱·燎原剑,,BOOK,,3,9000,1,0,1,0,0,,学会重击剑法燎原剑,fire,0
+金创药,,CONSUMABLE,,3,200,40,0,1,300,0,,恢复 300 点生命,,0
+大内力丹,,CONSUMABLE,,2,160,40,0,1,0,120,,恢复 120 点内力,,0
+千年参,,CONSUMABLE,,1,900,10,0,1,250,60,,补气老参，重伤时嚼一片,,0
+雁翎刀,,WEAPON,WEAPON,8,2600,1,360,10,0,0,dc_min=10;dc_max=18;hit=2,,,2
+藤甲,,ARMOR,ARMOR,12,1500,1,280,8,0,0,ac_min=7;ac_max=16;max_hp=20,,,2
+精铁盔,,HELMET,HELMET,5,1200,1,180,9,0,0,ac_min=4;ac_max=9;max_hp=10,,,2
+铜扳指,,RING,RING_RIGHT,3,1100,1,140,8,0,0,ac_min=1;ac_max=2;dc_min=1;dc_max=2,,,1
+步云履,,BOOTS,BOOTS,4,2400,1,200,12,0,0,ac_min=2;ac_max=6;move_speed=3,,,2
+丝绦腰带,,BELT,BELT,3,1400,1,150,10,0,0,ac_min=2;ac_max=4;max_mp=15,,,1
+玄铁,,MATERIAL,,8,120,100,0,1,0,0,,深山里挖出的精铁，铁匠收,,0
+狐皮,,MATERIAL,,2,35,200,0,1,0,0,,野狐的皮，轻软又保暖,,0
+武谱·铁布衫,,BOOK,,3,4200,1,0,1,0,0,,学会十八秒护体硬功铁布衫,iron,0
+武谱·狮子吼,,BOOK,,3,7600,1,0,1,0,0,,学会震慑全场的吼功狮子吼,roar,0
+鲫鱼,,MATERIAL,,2,22,200,0,1,0,0,,塘里最常见的个头，刺多，渔夫也收,,0
+鲤鱼,,MATERIAL,,4,45,100,0,1,0,0,,水边肥物，药婆嫌腥，渔夫肯出钱,,0
+草鱼,,MATERIAL,,7,70,100,0,1,0,0,,啃草长大的大个子，一竿能压弯竹竿,,0
+黑鱼,,MATERIAL,,5,120,50,0,1,0,0,,阴潭里的黑货，洞窟水潭才上得来,,0
